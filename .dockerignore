@@ -1,6 +1,0 @@
-scout/node_modules
-scout/.next
-.git
-*.md
-.env*
-!.env.example
