@@ -1,0 +1,40 @@
+@import "tailwindcss";
+
+:root {
+  --font-inter: 'Inter', sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-inter), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgb(15, 23, 42);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgb(51, 65, 85);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgb(71, 85, 105);
+}
+
+/* Focus visible ring */
+:focus-visible {
+  outline: 2px solid rgb(52, 211, 153);
+  outline-offset: 2px;
+}

@@ -1,0 +1,38 @@
+{
+  "name": "scout",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "@hookform/resolvers": "^3.10.0",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "framer-motion": "^11.18.2",
+    "lucide-react": "^0.414.0",
+    "next": "16.2.4",
+    "pdf-parse": "^1.1.4",
+    "pdfjs-dist": "^4.10.38",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-hook-form": "^7.73.1",
+    "tailwind-merge": "^2.6.1",
+    "uuid": "^10.0.0",
+    "zod": "^3.25.76",
+    "zustand": "^4.5.7"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/pdf-parse": "^1.1.5",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/uuid": "^10.0.0",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
