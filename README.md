@@ -1,36 +1,74 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# GutCheck: Clinical Menu Intelligence 🩺🍽️
 
-## Getting Started
+**GutCheck** is an AI-powered clinical intelligence tool designed to bridge the gap between complex blood reports and everyday dining decisions. It transforms static medical data into actionable, real-time guidance when you're looking at a restaurant menu.
 
-First, run the development server:
+## 🌟 The Vision
+Most people receive blood reports but struggle to translate markers like "HbA1c: 6.2%" or "LDL: 140 mg/dL" into specific dietary choices at a restaurant. GutCheck solves this by creating a personalized "Clinical Food Profile" that acts as a filter for any restaurant menu, highlighting what's safe and what's risky based on *your* specific health markers.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 🚀 Key Features
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+- **Blood Report Decoding**: Upload a PDF or image of your blood test. GutCheck uses Gemini 2.5 Pro to extract markers (HbA1c, Cholesterol, Uric Acid, Thyroid, etc.) and interpret their clinical significance.
+- **Personalized Food Profile**: Automatically generates custom "Food Rules" (e.g., "Limit saturated fats due to high LDL", "Avoid high-purine foods for Uric Acid").
+- **Real-Time Menu Analysis**: Paste or scan any restaurant menu. The AI runs a two-pass analysis to rank dishes based on your clinical profile.
+- **Indian Cuisine Aware**: Specifically optimized for Indian dietary contexts, understanding the impact of dishes like Dal Makhani, Paneer Tikka, or Roti on different health conditions.
+- **Privacy-First Architecture**: Your clinical data and food profile are stored **entirely on your device** (Local Storage). Nothing is stored on our servers.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 🛠️ Technical Architecture
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### Two-Pass Menu Analysis
+To ensure speed and token efficiency, GutCheck employs a two-pass strategy for menu processing:
+1. **Pass 1 (Extraction)**: Compresses raw menu text into a structured list of unique dishes and descriptions.
+2. **Pass 2 (Clinical Scoring)**: Runs the personalized food rules against the structured dish list to generate clinical scores and warnings.
 
-## Learn More
+### Security & Robustness
+- **Prompt Injection Detection**: Built-in layers to detect and block malicious prompts before they reach the LLM.
+- **Input Sanitization**: Cleanses blood report and menu text to prevent data leakage or malformed requests.
+- **Response Validation**: Uses Zod to ensure AI outputs strictly follow the required clinical schemas.
 
-To learn more about Next.js, take a look at the following resources:
+## 💻 Tech Stack
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **Framework**: [Next.js 16 (App Router)](https://nextjs.org)
+- **AI Engine**: [Google Gemini 2.5 Pro](https://ai.google.dev/) (Free Tier optimized)
+- **State Management**: [Zustand](https://github.com/pmndrs/zustand) with Persistence
+- **Parsing**: `pdf-parse` & `pdfjs-dist` for robust document processing
+- **Styling**: Vanilla CSS & Tailwind CSS 4.0
+- **Animations**: [Framer Motion](https://www.framer.com/motion/)
+- **Validation**: [Zod](https://zod.dev/)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🚦 Getting Started
 
-## Deploy on Vercel
+### Prerequisites
+- Node.js 18+
+- A Google AI (Gemini) API Key
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Installation
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/Kshitij-KS/GutCheck.git
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   ```
+
+3. Configure Environment Variables:
+   Create a `.env.local` file in the root:
+   ```env
+   NEXT_PUBLIC_GEMINI_API_KEY=your_api_key_here
+   ```
+
+4. Run the development server:
+   ```bash
+   npm run dev
+   ```
+
+## 🔒 Privacy & Security
+GutCheck is built with a **Zero-Persistence Backend**. 
+- **Blood reports** are processed in-memory and discarded.
+- **Clinical profiles** are stored in your browser's `localStorage`.
+- **Menu data** is processed through the API but never logged or stored.
+
+---
+Built with ❤️ for better metabolic health.

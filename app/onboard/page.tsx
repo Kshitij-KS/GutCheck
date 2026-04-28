@@ -2,120 +2,148 @@
 
 // app/onboard/page.tsx
 
-import { useCallback } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Activity, RefreshCw } from 'lucide-react';
-import { PageShell } from '@/components/layout/PageShell';
+import { AnimatePresence, motion } from 'framer-motion';
+import { useGutCheckStore } from '@/store/gutcheck.store';
+import { useAgentPipeline } from '@/hooks/useAgentPipeline';
 import { FileDropzone } from '@/components/onboard/FileDropzone';
-import { ExtractionProgress } from '@/components/onboard/ExtractionProgress';
-import { ProfilePreview } from '@/components/onboard/ProfilePreview';
-import { useBloodAnalysis } from '@/hooks/useBloodAnalysis';
+import { PDFPreview } from '@/components/onboard/PDFPreview';
+import { AgentProgressStepper } from '@/components/onboard/AgentProgressStepper';
+import { GuardrailAlert } from '@/components/onboard/GuardrailAlert';
+import { ProfileConfirmation } from '@/components/onboard/ProfileConfirmation';
+import { useState } from 'react';
 
-
-
-export default function OnboardPage() {
+export function OnboardPage() {
   const router = useRouter();
-  const { state, analyze, reset } = useBloodAnalysis();
+  const isOnboarded = useGutCheckStore((s) => s.isOnboarded);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const { state, run, reset } = useAgentPipeline();
 
-  const handleFileReady = useCallback(
-    async (
-      _file: File,
-      extractedText: string,
-      imageBase64?: string,
-      mimeType?: 'image/jpeg' | 'image/png' | 'image/webp'
-    ) => {
-      await analyze(extractedText, imageBase64, mimeType);
-    },
-    [analyze]
-  );
+  // Redirect if already onboarded
+  useEffect(() => {
+    if (isOnboarded) router.replace('/dashboard');
+  }, [isOnboarded, router]);
 
-  const handleConfirm = () => {
-    router.push('/gutcheck');
+  const handleFile = (file: File) => {
+    setSelectedFile(file);
+    void run(file);
   };
 
+  const handleSave = () => {
+    router.push('/dashboard');
+  };
+
+  const isActive = state.stage !== 'idle';
+  const isError = state.stage === 'error';
+  const isGuardrailBlocked = state.stage === 'guardrail_blocked';
+  const isComplete = state.stage === 'complete';
+  const isProcessing = ['extracting', 'guardrail_checking', 'translating'].includes(state.stage);
+
   return (
-    <PageShell maxWidth="2xl" className="py-12">
-      {/* Header */}
-      <div className="mb-10 text-center">
-        <div className="mb-4 inline-flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-500 shadow-lg shadow-emerald-500/20">
-          <Activity className="h-7 w-7 text-white" />
-        </div>
-        <h1 className="text-3xl font-bold text-white">Upload Your Blood Report</h1>
-        <p className="mt-2 text-slate-400">
-          GutCheck will extract your health markers and build a personalized food profile
-        </p>
+    <div className="min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
+      <div className="max-w-2xl mx-auto px-4 py-16">
+        {/* Hero */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: 'easeOut' }}
+          className="text-center mb-12"
+        >
+          <h1
+            className="text-5xl leading-tight mb-4"
+            style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)', fontWeight: 400 }}
+          >
+            Know your body.<br />Trust your meals.
+          </h1>
+          <p
+            className="text-lg leading-relaxed"
+            style={{ fontFamily: 'var(--font-body)', color: 'var(--text-secondary)' }}
+          >
+            Upload your blood report once. Get everyday food wisdom — for every meal, every menu.
+          </p>
+        </motion.div>
+
+        <AnimatePresence mode="wait">
+          {/* Step 1: File upload */}
+          {!isActive && (
+            <motion.div
+              key="upload"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <FileDropzone onFile={handleFile} />
+              <p
+                className="mt-4 text-xs text-center"
+                style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}
+              >
+                Your report stays on your device. Nothing is stored on our servers.
+              </p>
+            </motion.div>
+          )}
+
+          {/* Step 2: Processing */}
+          {isProcessing && (
+            <motion.div
+              key="processing"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="space-y-8"
+            >
+              {selectedFile && (
+                <PDFPreview file={selectedFile} />
+              )}
+              <AgentProgressStepper
+                stage={state.stage}
+                streamedText={state.stage === 'translating' ? (state as { stage: string; streamedText: string }).streamedText : undefined}
+              />
+            </motion.div>
+          )}
+
+          {/* Step 3: Guardrail blocked */}
+          {isGuardrailBlocked && state.stage === 'guardrail_blocked' && (
+            <GuardrailAlert result={state.result} onDismiss={reset} />
+          )}
+
+          {/* Step 4: Complete — profile confirmation */}
+          {isComplete && state.stage === 'complete' && (
+            <motion.div
+              key="complete"
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4 }}
+            >
+              <ProfileConfirmation profile={state.profile} onSave={handleSave} />
+            </motion.div>
+          )}
+
+          {/* Error state */}
+          {isError && state.stage === 'error' && (
+            <motion.div
+              key="error"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="gc-card p-6 text-center"
+            >
+              <p
+                className="mb-4"
+                style={{ fontFamily: 'var(--font-body)', color: 'var(--text-secondary)' }}
+              >
+                {state.message}
+              </p>
+              <button onClick={reset} className="gc-btn-secondary">
+                Try again
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
-
-      <AnimatePresence mode="wait">
-        {(state.status === 'idle' || state.status === 'error') && (
-          <motion.div
-            key="upload"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="space-y-6"
-          >
-            <FileDropzone onFileReady={handleFileReady} />
-
-            {state.status === 'error' && (
-              <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="font-semibold text-red-400">Analysis Failed</p>
-                    <p className="mt-1 text-sm text-slate-400">{state.message}</p>
-                  </div>
-                  <button
-                    onClick={reset}
-                    className="flex items-center gap-1.5 rounded-lg border border-slate-700 px-3 py-1.5 text-sm text-slate-300 hover:bg-slate-800 transition-colors"
-                  >
-                    <RefreshCw className="h-3.5 w-3.5" /> Retry
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Supported formats */}
-            <div className="rounded-xl border border-slate-800 bg-slate-900/50 p-5">
-              <h3 className="text-sm font-semibold text-slate-300 mb-3">What GutCheck can read</h3>
-              <div className="grid grid-cols-2 gap-3 text-sm text-slate-400">
-                <div>✓ Lab reports from any Indian diagnostic center</div>
-                <div>✓ Full blood count (CBC)</div>
-                <div>✓ Lipid profiles & metabolic panels</div>
-                <div>✓ Thyroid, liver, kidney panels</div>
-                <div>✓ HbA1c, fasting glucose, insulin</div>
-                <div>✓ Vitamins D, B12, Iron studies</div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {(state.status === 'extracting' || state.status === 'analyzing') && (
-          <motion.div
-            key="progress"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className="rounded-xl border border-slate-700/50 bg-slate-800/30 p-8"
-          >
-            <ExtractionProgress
-              currentStep={state.status === 'extracting' ? 'extracting' : 'analyzing'}
-              message={state.message}
-            />
-          </motion.div>
-        )}
-
-        {state.status === 'done' && (
-          <motion.div
-            key="preview"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-          >
-            <ProfilePreview profile={state.result} onConfirm={handleConfirm} />
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </PageShell>
+    </div>
   );
 }
+
+export default OnboardPage;

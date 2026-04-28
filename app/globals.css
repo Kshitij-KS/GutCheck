@@ -1,40 +1,218 @@
 @import "tailwindcss";
 
+/* ─── GutCheck Design System ───────────────────────────────────────────────── */
+/* Organic, premium wellness journal — "Anti-AI" aesthetic                      */
+/* All colors are warm, muted, grounded. NEVER neon. NEVER harsh red.           */
+
 :root {
-  --font-inter: 'Inter', sans-serif;
+  /* Backgrounds */
+  --bg-primary:         #FAF8F4;   /* Warm off-white — never pure white */
+  --bg-secondary:       #F3EFE8;   /* Warm sand */
+  --bg-elevated:        #FFFFFF;
+
+  /* Typography */
+  --text-primary:       #1C1A17;   /* Deep charcoal */
+  --text-secondary:     #5C5752;   /* Warm gray */
+  --text-muted:         #9C9690;
+
+  /* Traffic Lights — muted, organic (NEVER harsh red) */
+  --tl-prioritize:      #3D7A5A;   /* Sage green */
+  --tl-prioritize-bg:   #EAF4EE;
+  --tl-moderate:        #8B6914;   /* Warm amber */
+  --tl-moderate-bg:     #FDF5E0;
+  --tl-avoid:           #6B3A2E;   /* Muted terracotta */
+  --tl-avoid-bg:        #F5EDEA;
+
+  /* Marker Status Colors */
+  --status-optimal:     #3D7A5A;
+  --status-borderline:  #8B6914;
+  --status-elevated:    #B55A2A;
+  --status-critical:    #8B1A1A;   /* Dark, never neon */
+  --status-low:         #2A5A8B;
+
+  /* Accent */
+  --accent:             #5A7A5A;   /* Primary CTA — sage green */
+  --accent-hover:       #3D6040;
+
+  /* Borders */
+  --border:             rgba(28, 26, 23, 0.10);
+  --border-strong:      rgba(28, 26, 23, 0.20);
+
+  /* Fonts */
+  --font-display:       'Cormorant Garamond', Georgia, serif;
+  --font-body:          'DM Sans', system-ui, sans-serif;
+  --font-mono:          'DM Mono', 'Courier New', monospace;
 }
+
+/* ─── Base ──────────────────────────────────────────────────────────────────── */
 
 html {
   scroll-behavior: smooth;
+  background-color: var(--bg-primary);
 }
 
 body {
-  font-family: var(--font-inter), system-ui, sans-serif;
+  font-family: var(--font-body);
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  line-height: 1.6;
 }
 
-/* Custom scrollbar */
+/* ─── Typography Utilities ─────────────────────────────────────────────────── */
+
+.font-display {
+  font-family: var(--font-display);
+}
+
+.font-body {
+  font-family: var(--font-body);
+}
+
+.font-mono {
+  font-family: var(--font-mono);
+}
+
+/* ─── Card System ───────────────────────────────────────────────────────────── */
+/* Standard card: rounded-2xl, warm white, subtle border, no harsh shadows      */
+
+.gc-card {
+  border-radius: 1rem;
+  background-color: var(--bg-elevated);
+  box-shadow: 0 1px 3px rgba(28, 26, 23, 0.06);
+  border: 1px solid var(--border);
+  transition: box-shadow 0.2s ease;
+}
+
+.gc-card:hover {
+  box-shadow: 0 4px 12px rgba(28, 26, 23, 0.10);
+}
+
+/* ─── Traffic Light Badges ─────────────────────────────────────────────────── */
+
+.tl-prioritize {
+  color: var(--tl-prioritize);
+  background-color: var(--tl-prioritize-bg);
+}
+
+.tl-moderate {
+  color: var(--tl-moderate);
+  background-color: var(--tl-moderate-bg);
+}
+
+.tl-avoid {
+  color: var(--tl-avoid);
+  background-color: var(--tl-avoid-bg);
+  opacity: 0.85;
+}
+
+/* ─── Button System ─────────────────────────────────────────────────────────── */
+
+.gc-btn-primary {
+  background-color: var(--accent);
+  color: #FFFFFF;
+  border-radius: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-family: var(--font-body);
+  font-weight: 500;
+  transition: background-color 0.2s ease, transform 0.1s ease;
+  cursor: pointer;
+  border: none;
+}
+
+.gc-btn-primary:hover {
+  background-color: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.gc-btn-primary:active {
+  transform: translateY(0);
+}
+
+.gc-btn-secondary {
+  background-color: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-strong);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  font-family: var(--font-body);
+  font-weight: 500;
+  transition: background-color 0.2s ease, color 0.2s ease;
+  cursor: pointer;
+}
+
+.gc-btn-secondary:hover {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
+/* ─── Input System ──────────────────────────────────────────────────────────── */
+
+.gc-input {
+  background-color: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  border-radius: 0.5rem;
+  padding: 0.75rem 1rem;
+  font-family: var(--font-body);
+  color: var(--text-primary);
+  width: 100%;
+  transition: border-color 0.2s ease;
+}
+
+.gc-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(90, 122, 90, 0.15);
+}
+
+.gc-textarea {
+  resize: vertical;
+  min-height: 120px;
+}
+
+/* ─── Scrollbar ─────────────────────────────────────────────────────────────── */
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 
 ::-webkit-scrollbar-track {
-  background: rgb(15, 23, 42);
+  background: var(--bg-secondary);
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgb(51, 65, 85);
+  background: var(--border-strong);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgb(71, 85, 105);
+  background: var(--text-muted);
 }
 
-/* Focus visible ring */
+/* ─── Focus Ring ────────────────────────────────────────────────────────────── */
+
 :focus-visible {
-  outline: 2px solid rgb(52, 211, 153);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
+}
+
+/* ─── Print Styles (Chef's Card) ────────────────────────────────────────────── */
+
+@media print {
+  nav,
+  .no-print {
+    display: none !important;
+  }
+
+  body {
+    background-color: #fff;
+    color: #000;
+  }
+
+  .gc-card {
+    box-shadow: none;
+    border: 1px solid #ccc;
+  }
 }

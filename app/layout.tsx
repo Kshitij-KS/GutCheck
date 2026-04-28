@@ -1,35 +1,65 @@
 import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
+import { Cormorant_Garamond, DM_Sans, DM_Mono } from 'next/font/google';
 import './globals.css';
-import { Navbar } from '@/components/layout/Navbar';
+import { AppShell } from '@/components/layout/AppShell';
 
-const inter = Inter({
+const cormorantGaramond = Cormorant_Garamond({
   subsets: ['latin'],
-  variable: '--font-inter',
+  weight: ['400', '500', '600'],
+  variable: '--font-cormorant',
+  display: 'swap',
+});
+
+const dmSans = DM_Sans({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  variable: '--font-dm-sans',
+  display: 'swap',
+});
+
+const dmMono = DM_Mono({
+  subsets: ['latin'],
+  weight: ['400'],
+  variable: '--font-dm-mono',
+  display: 'swap',
 });
 
 export const metadata: Metadata = {
-  title: 'GutCheck — AI-Powered Clinical Menu Intelligence',
+  title: 'GutCheck — Know your body. Trust your meals.',
   description:
-    'Upload your blood test report, get a personalized food profile, and instantly decode any restaurant menu through your clinical lens. Powered by Gemini 2.5 Pro.',
-  keywords: ['blood report', 'menu analysis', 'health', 'diet', 'nutrition', 'AI', 'clinical'],
+    'GutCheck translates your blood report into everyday food wisdom. Privacy-first, India-aware wellness guidance — no data leaves your device.',
+  keywords: ['blood report', 'nutrition', 'diet', 'wellness', 'health', 'India', 'food guidance', 'privacy'],
   openGraph: {
-    title: 'GutCheck — Clinical Menu Intelligence',
-    description: 'Your blood report. Every menu. Instantly decoded.',
+    title: 'GutCheck — Know your body. Trust your meals.',
+    description: 'GutCheck translates your blood report into everyday food wisdom.',
     type: 'website',
+  },
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'GutCheck',
   },
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export const viewport = {
+  themeColor: '#5A7A5A',
+};
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className={inter.variable}>
-      <body className="bg-slate-950 text-slate-200 antialiased min-h-screen">
-        <Navbar />
-        {children}
+    <html
+      lang="en"
+      className={`${cormorantGaramond.variable} ${dmSans.variable} ${dmMono.variable}`}
+    >
+      <body
+        style={{
+          fontFamily: 'var(--font-dm-sans), system-ui, sans-serif',
+          backgroundColor: 'var(--bg-primary)',
+          color: 'var(--text-primary)',
+        }}
+      >
+        <AppShell>{children}</AppShell>
       </body>
     </html>
   );
