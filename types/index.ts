@@ -182,6 +182,7 @@ export interface GutCheckStore {
   healthProfile: HealthProfile | null;
   isOnboarded: boolean;
   reportHistory: ReportHistoryEntry[];
+  location?: string;
 
   // Drive Sync
   driveSync: DriveSync;
@@ -197,6 +198,7 @@ export interface GutCheckStore {
 
   // Actions
   setHealthProfile: (profile: HealthProfile) => void;
+  setLocation: (location: string) => void;
   /** Merge Drive backup into local state: newer profile wins; histories union by id, newest first, capped. */
   mergeFromDrive: (payload: DriveSyncPayload) => void;
   addScanResult: (result: MenuScanResult) => void;

@@ -103,6 +103,7 @@ export const useGutCheckStore = create<GutCheckStore>()(
         healthProfile: null,
         isOnboarded: false,
         reportHistory: [],
+        location: undefined,
         driveSync: 'offline',
         lastSyncedAt: null,
         scanHistory: [],
@@ -127,6 +128,8 @@ export const useGutCheckStore = create<GutCheckStore>()(
 
           set({ healthProfile: profile, isOnboarded: true });
         },
+
+        setLocation: (location: string) => set({ location }),
 
         mergeFromDrive: (payload: DriveSyncPayload) => {
           const { healthProfile: localProfile, reportHistory: localHistory } = get();
@@ -174,6 +177,7 @@ export const useGutCheckStore = create<GutCheckStore>()(
             healthProfile: null,
             isOnboarded: false,
             reportHistory: [],
+            location: undefined,
             driveSync: 'offline',
             lastSyncedAt: null,
             scanHistory: [],
