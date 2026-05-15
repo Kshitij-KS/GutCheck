@@ -3,7 +3,7 @@
 // components/scan/ScanModeToggle.tsx
 
 import type { ScanMode } from '@/types';
-import { Camera, MessageSquare, FileText } from 'lucide-react';
+import { Camera, ImageUp, MessageSquare, FileText } from 'lucide-react';
 
 interface ScanModeToggleProps {
   mode: ScanMode;
@@ -12,6 +12,7 @@ interface ScanModeToggleProps {
 
 const MODES: { id: ScanMode; label: string; icon: typeof Camera }[] = [
   { id: 'camera', label: 'Camera', icon: Camera },
+  { id: 'menu-upload', label: 'Upload Photo', icon: ImageUp },
   { id: 'quick-query', label: 'Quick Query', icon: MessageSquare },
   { id: 'menu-text', label: 'Paste Menu', icon: FileText },
 ];
@@ -19,14 +20,19 @@ const MODES: { id: ScanMode; label: string; icon: typeof Camera }[] = [
 export function ScanModeToggle({ mode, onChange }: ScanModeToggleProps) {
   return (
     <div
-      className="inline-flex rounded-xl p-1 gap-1"
+      className="flex flex-wrap w-full rounded-xl p-1 gap-1 sm:inline-flex sm:w-auto"
       style={{ backgroundColor: 'var(--bg-secondary)' }}
+      role="tablist"
+      aria-label="Scan input mode"
     >
       {MODES.map(({ id, label, icon: Icon }) => (
         <button
           key={id}
+          type="button"
+          role="tab"
+          aria-selected={mode === id}
           onClick={() => onChange(id)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all"
+          className="flex flex-1 min-w-[min(100%,7rem)] sm:flex-initial items-center justify-center gap-2 min-h-11 px-3 sm:px-4 rounded-lg text-sm font-medium transition-all"
           style={{
             fontFamily: 'var(--font-body)',
             backgroundColor: mode === id ? 'var(--bg-elevated)' : 'transparent',

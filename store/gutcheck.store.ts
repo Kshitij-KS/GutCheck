@@ -16,32 +16,62 @@ import type {
   BloodMarker,
   MarkerDelta,
   MarkerStatus,
+  DriveSyncPayload,
 } from '@/types';
 
 const STORE_VERSION = 1;
 
 function computeTrend(prev: BloodMarker, curr: BloodMarker): 'IMPROVING' | 'WORSENING' | 'STABLE' {
-  // Status improvement order (lower index = better)
-  const statusOrder: MarkerStatus[] = ['OPTIMAL', 'BORDERLINE', 'ELEVATED', 'CRITICAL', 'LOW', 'CRITICALLY_LOW'];
-  const prevIdx = statusOrder.indexOf(prev.status);
-  const currIdx = statusOrder.indexOf(curr.status);
+  // LOW / CRITICALLY_LOW are deficiency markers (different axis from ELEVATED/CRITICAL).
+  // Use two separate orderings so that status-level comparison is always meaningful.
+  const isLowType = curr.status === 'LOW' || curr.status === 'CRITICALLY_LOW'
+    || prev.status === 'LOW' || prev.status === 'CRITICALLY_LOW';
 
-  if (currIdx < prevIdx) return 'IMPROVING';
-  if (currIdx > prevIdx) return 'WORSENING';
+  // For HIGH markers (too much of something): lower status index = better
+  const highOrder: MarkerStatus[] = ['OPTIMAL', 'BORDERLINE', 'ELEVATED', 'CRITICAL'];
+  // For LOW markers (too little of something): closer to OPTIMAL = better
+  const lowOrder: MarkerStatus[] = ['OPTIMAL', 'BORDERLINE', 'LOW', 'CRITICALLY_LOW'];
 
-  // Same status — check numeric value direction
-  const isLowType = curr.status === 'LOW' || curr.status === 'CRITICALLY_LOW';
+  const order = isLowType ? lowOrder : highOrder;
+  const prevIdx = order.indexOf(prev.status);
+  const currIdx = order.indexOf(curr.status);
+
+  // Status improved or worsened
+  if (prevIdx !== -1 && currIdx !== -1) {
+    if (currIdx < prevIdx) return 'IMPROVING';
+    if (currIdx > prevIdx) return 'WORSENING';
+  }
+
+  // Same status level — check numeric direction
   if (isLowType) {
-    // For low markers: going up is improving
+    // For deficiency markers: higher value = improving (e.g., hemoglobin rising)
     if (curr.numericValue > prev.numericValue * 1.05) return 'IMPROVING';
     if (curr.numericValue < prev.numericValue * 0.95) return 'WORSENING';
   } else {
-    // For high markers: going down is improving
+    // For excess markers: lower value = improving (e.g., LDL falling)
     if (curr.numericValue < prev.numericValue * 0.95) return 'IMPROVING';
     if (curr.numericValue > prev.numericValue * 1.05) return 'WORSENING';
   }
 
   return 'STABLE';
+}
+
+const MAX_REPORT_HISTORY = 50;
+
+function mergeReportHistories(
+  local: ReportHistoryEntry[],
+  remote: ReportHistoryEntry[]
+): ReportHistoryEntry[] {
+  const byId = new Map<string, ReportHistoryEntry>();
+  for (const e of [...local, ...remote]) {
+    const existing = byId.get(e.id);
+    if (!existing || e.uploadedAt > existing.uploadedAt) {
+      byId.set(e.id, e);
+    }
+  }
+  return [...byId.values()]
+    .sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt))
+    .slice(0, MAX_REPORT_HISTORY);
 }
 
 function computeMarkerDeltas(
@@ -96,6 +126,29 @@ export const useGutCheckStore = create<GutCheckStore>()(
           }
 
           set({ healthProfile: profile, isOnboarded: true });
+        },
+
+        mergeFromDrive: (payload: DriveSyncPayload) => {
+          const { healthProfile: localProfile, reportHistory: localHistory } = get();
+          const driveProfile = payload.profile;
+          const driveHistory = payload.history ?? [];
+
+          if (!driveProfile) return;
+
+          const mergedHistory = mergeReportHistories(localHistory, driveHistory);
+          const localUpdated = localProfile?.updatedAt ?? '';
+          const driveUpdated = driveProfile.updatedAt ?? '';
+
+          if (!localProfile || driveUpdated > localUpdated) {
+            set({
+              healthProfile: driveProfile,
+              isOnboarded: true,
+              reportHistory: mergedHistory,
+              lastSyncedAt: payload.syncedAt,
+            });
+          } else {
+            set({ reportHistory: mergedHistory, lastSyncedAt: payload.syncedAt });
+          }
         },
 
         addScanResult: (result: MenuScanResult) =>

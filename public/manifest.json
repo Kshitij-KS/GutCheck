@@ -6,7 +6,7 @@
   "display": "standalone",
   "background_color": "#FAF8F4",
   "theme_color": "#5A7A5A",
-  "orientation": "portrait",
+  "orientation": "any",
   "categories": ["health", "food", "medical"],
   "icons": [
     {

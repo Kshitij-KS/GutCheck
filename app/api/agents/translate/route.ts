@@ -8,17 +8,29 @@ import { TRANSLATE_SYSTEM_PROMPT, buildTranslateUserPrompt } from '@/lib/prompts
 import { parseHealthProfile } from '@/lib/parsers/translate.parser';
 import { buildOfflineFallbackTree } from '@/lib/offline/cache-builder';
 import { generateId } from '@/lib/utils';
+import {
+  API_INPUT_LIMITS,
+  detectPromptInjection,
+  isResponseSafe,
+  sanitizeInput,
+} from '@/lib/security';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 const RequestSchema = z.object({
-  markersJson: z.string().min(2),
-  reportText: z.string().default(''),
-  userContext: z.object({
-    location: z.string().optional(),
-    age: z.number().optional(),
-  }).optional(),
+  markersJson: z.string().min(2).max(API_INPUT_LIMITS.markersJson),
+  reportText: z.string().max(API_INPUT_LIMITS.reportText).default(''),
+  userContext: z
+    .object({
+      location: z.string().max(200).optional(),
+      age: z.number().min(0).max(130).optional(),
+    })
+    .optional(),
 });
 
 export async function POST(req: NextRequest): Promise<Response> {
+  const limited = await checkRateLimit(req, 'agents', 'translate');
+  if (limited) return limited;
+
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -33,11 +45,18 @@ export async function POST(req: NextRequest): Promise<Response> {
 
         if (!parsed.success) {
           emit({ error: 'Invalid request', done: true });
-          controller.close();
           return;
         }
 
-        const { markersJson, reportText, userContext } = parsed.data;
+        let { markersJson, reportText, userContext } = parsed.data;
+        markersJson = sanitizeInput(markersJson);
+        reportText = sanitizeInput(reportText);
+
+        const inj = detectPromptInjection(reportText);
+        if (!inj.isSafe) {
+          emit({ error: inj.reason ?? 'Report text was rejected for safety.', done: true });
+          return;
+        }
 
         emit({ status: 'translating', message: 'Building your personalized profile...' });
 
@@ -56,15 +75,16 @@ export async function POST(req: NextRequest): Promise<Response> {
           emit({ chunk: chunkText });
         }
 
-        // Parse and validate the complete response
+        if (!isResponseSafe(fullText)) {
+          emit({ error: 'AI response could not be parsed', done: true });
+          return;
+        }
         const profile = parseHealthProfile(fullText);
 
-        // Ensure required fields
         if (!profile.id) (profile as Record<string, unknown>).id = generateId();
         if (!profile.createdAt) (profile as Record<string, unknown>).createdAt = new Date().toISOString();
         if (!profile.updatedAt) (profile as Record<string, unknown>).updatedAt = new Date().toISOString();
 
-        // Build offline fallback tree from the profile
         profile.offlineFallbackTree = buildOfflineFallbackTree(profile);
 
         emit({ done: true, result: profile });

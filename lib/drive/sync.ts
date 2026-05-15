@@ -4,13 +4,9 @@
 
 import type { drive_v3 } from 'googleapis';
 import { DRIVE_FILES, DRIVE_SPACE } from './client';
-import type { HealthProfile, ReportHistoryEntry } from '@/types';
+import type { DriveSyncPayload } from '@/types';
 
-export interface DriveSyncPayload {
-  profile: HealthProfile | null;
-  history: ReportHistoryEntry[];
-  syncedAt: string;
-}
+export type { DriveSyncPayload };
 
 /**
  * Write local data to Drive AppData.

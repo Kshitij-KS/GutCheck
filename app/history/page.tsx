@@ -1,7 +1,7 @@
 'use client';
 
 // app/history/page.tsx
-// Report history — markerDelta display with trend arrows, Recharts sparklines
+// Report history — markerDelta display with trend arrows + Recharts sparklines per marker
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -9,11 +9,12 @@ import { motion } from 'framer-motion';
 import { useGutCheckStore } from '@/store/gutcheck.store';
 import { formatDate } from '@/lib/utils';
 import { TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { TrendSparkline } from '@/components/dashboard/TrendSparkline';
 import type { MarkerDelta } from '@/types';
 
 export default function HistoryPage() {
   const router = useRouter();
-  const { isOnboarded, reportHistory } = useGutCheckStore();
+  const { isOnboarded, reportHistory, healthProfile } = useGutCheckStore();
 
   useEffect(() => {
     if (!isOnboarded) router.replace('/');
@@ -35,15 +36,46 @@ export default function HistoryPage() {
     );
   }
 
+  const showSparklines = reportHistory.length >= 2 && healthProfile;
+
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
       <h1
-        className="text-3xl mb-8"
+        className="text-3xl mb-2"
         style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)', fontWeight: 500 }}
       >
         Report history
       </h1>
+      <p
+        className="mb-8 text-sm"
+        style={{ fontFamily: 'var(--font-body)', color: 'var(--text-muted)' }}
+      >
+        {reportHistory.length} {reportHistory.length === 1 ? 'report' : 'reports'} tracked
+      </p>
 
+      {/* Marker sparklines — only when 2+ reports uploaded */}
+      {showSparklines && (
+        <div className="mb-10">
+          <h2
+            className="text-lg mb-4"
+            style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)', fontWeight: 500 }}
+          >
+            Marker trends
+          </h2>
+          <div className="gc-card p-5 space-y-2">
+            {healthProfile!.markers.map((marker) => (
+              <TrendSparkline
+                key={marker.id}
+                markerName={marker.name}
+                markerId={marker.id}
+                history={reportHistory}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Report entries */}
       <div className="space-y-6">
         {reportHistory.map((entry, i) => (
           <motion.div
@@ -71,11 +103,20 @@ export default function HistoryPage() {
             </div>
 
             {/* Delta rows */}
-            <div className="space-y-3">
-              {entry.markerDeltas.map((delta) => (
-                <MarkerDeltaRow key={delta.markerId} delta={delta} />
-              ))}
-            </div>
+            {entry.markerDeltas.length > 0 ? (
+              <div className="space-y-3">
+                {entry.markerDeltas.map((delta) => (
+                  <MarkerDeltaRow key={delta.markerId} delta={delta} />
+                ))}
+              </div>
+            ) : (
+              <p
+                className="text-sm"
+                style={{ fontFamily: 'var(--font-body)', color: 'var(--text-muted)' }}
+              >
+                No matching markers found between these reports.
+              </p>
+            )}
           </motion.div>
         ))}
       </div>

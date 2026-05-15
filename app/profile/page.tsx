@@ -1,34 +1,25 @@
 'use client';
 
-// app/profile/page.tsx
-// Clean Slate Protocol + Drive sync settings
-
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useSession, signIn, signOut } from 'next-auth/react';
+import { signIn, signOut, useSession } from 'next-auth/react';
+import { Cloud, CloudOff, Trash2, UploadCloud } from 'lucide-react';
 import { useGutCheckStore } from '@/store/gutcheck.store';
 import { formatDate } from '@/lib/utils';
-import { Cloud, CloudOff, Trash2, UploadCloud } from 'lucide-react';
 
 export default function ProfilePage() {
   const router = useRouter();
   const { isOnboarded, healthProfile, driveSync, clearAll } = useGutCheckStore();
   const { data: session, status } = useSession();
+  const [cleanSlateStep, setCleanSlateStep] = useState<0 | 1 | 2>(0);
 
   useEffect(() => {
     if (!isOnboarded) router.replace('/');
   }, [isOnboarded, router]);
 
   const handleCleanSlate = async () => {
-    const confirmed = window.confirm(
-      'This will permanently delete all your data from this device and Google Drive. This cannot be undone. Are you sure?'
-    );
-    if (!confirmed) return;
-
-    // STEP 1: clearAll() synchronously — UI is clean immediately
     clearAll();
 
-    // STEP 2: async Drive wipe (non-blocking)
     if (session) {
       fetch('/api/drive/wipe', { method: 'POST' }).catch(() => {});
     }
@@ -47,7 +38,6 @@ export default function ProfilePage() {
         Profile settings
       </h1>
 
-      {/* Report info */}
       <div className="gc-card p-6">
         <h2
           className="text-lg mb-4"
@@ -67,7 +57,6 @@ export default function ProfilePage() {
         </div>
       </div>
 
-      {/* Drive sync */}
       <div className="gc-card p-6">
         <h2
           className="text-lg mb-2"
@@ -86,23 +75,30 @@ export default function ProfilePage() {
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               {driveSync === 'synced' ? (
-                <><Cloud size={16} style={{ color: 'var(--tl-prioritize)' }} />
+                <>
+                  <Cloud size={16} style={{ color: 'var(--tl-prioritize)' }} />
                   <span className="text-sm" style={{ color: 'var(--tl-prioritize)', fontFamily: 'var(--font-body)' }}>
                     Synced to Drive
-                  </span></>
+                  </span>
+                </>
               ) : driveSync === 'error' ? (
-                <><CloudOff size={16} style={{ color: 'var(--tl-avoid)' }} />
+                <>
+                  <CloudOff size={16} style={{ color: 'var(--tl-avoid)' }} />
                   <span className="text-sm" style={{ color: 'var(--tl-avoid)', fontFamily: 'var(--font-body)' }}>
-                    Sync error — working offline
-                  </span></>
+                    Sync error - working offline
+                  </span>
+                </>
               ) : (
-                <><UploadCloud size={16} style={{ color: 'var(--text-muted)' }} />
+                <>
+                  <UploadCloud size={16} style={{ color: 'var(--text-muted)' }} />
                   <span className="text-sm" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
                     {driveSync === 'pending' ? 'Syncing...' : 'Not synced yet'}
-                  </span></>
+                  </span>
+                </>
               )}
             </div>
             <button
+              type="button"
               onClick={() => void signOut()}
               className="gc-btn-secondary text-sm"
             >
@@ -110,14 +106,13 @@ export default function ProfilePage() {
             </button>
           </div>
         ) : (
-          <button onClick={() => void signIn('google')} className="gc-btn-primary flex items-center gap-2">
+          <button type="button" onClick={() => void signIn('google')} className="gc-btn-primary flex items-center gap-2">
             <Cloud size={16} />
             Connect Google Drive
           </button>
         )}
       </div>
 
-      {/* Clean Slate Protocol */}
       <div
         className="gc-card p-6"
         style={{ borderColor: 'var(--tl-avoid)', borderWidth: '1px' }}
@@ -136,7 +131,8 @@ export default function ProfilePage() {
           Permanently removes all health data from this device and your Google Drive backup. This cannot be undone.
         </p>
         <button
-          onClick={() => void handleCleanSlate()}
+          type="button"
+          onClick={() => setCleanSlateStep(1)}
           className="gc-btn-secondary text-sm"
           style={{ borderColor: 'var(--tl-avoid)', color: 'var(--tl-avoid)' }}
         >
@@ -144,7 +140,6 @@ export default function ProfilePage() {
         </button>
       </div>
 
-      {/* Update report */}
       <div className="gc-card p-6">
         <h2
           className="text-lg mb-2"
@@ -158,21 +153,76 @@ export default function ProfilePage() {
         >
           Upload a newer blood report to update your profile and track trends over time.
         </p>
-        <button onClick={() => router.push('/')} className="gc-btn-secondary text-sm">
+        <button
+          type="button"
+          onClick={() => router.push('/onboard?replace=1')}
+          className="gc-btn-secondary text-sm"
+        >
           Upload new report
         </button>
       </div>
+
+      {cleanSlateStep > 0 && (
+        <div
+          className="fixed inset-0 z-[80] flex items-end justify-center bg-[rgba(28,26,23,0.35)] p-4 sm:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="clean-slate-title"
+        >
+          <div className="gc-card w-full max-w-md p-6">
+            <p className="text-xs font-medium uppercase tracking-[0.16em]" style={{ color: 'var(--text-muted)' }}>
+              Clean Slate
+            </p>
+            <h2
+              id="clean-slate-title"
+              className="mt-2 text-2xl"
+              style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)', fontWeight: 500 }}
+            >
+              {cleanSlateStep === 1 ? 'Delete your local profile?' : 'Final confirmation'}
+            </h2>
+            <p className="mt-3 text-sm leading-relaxed" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
+              {cleanSlateStep === 1
+                ? 'This clears your profile, report history, menu scans, and grocery audits from this device immediately.'
+                : 'This also asks Google Drive to delete the backup if you are connected. This cannot be undone.'}
+            </p>
+            <div className="mt-6 grid gap-3 sm:grid-cols-2">
+              <button type="button" className="gc-btn-secondary min-h-11" onClick={() => setCleanSlateStep(0)}>
+                Cancel
+              </button>
+              {cleanSlateStep === 1 ? (
+                <button
+                  type="button"
+                  className="gc-btn-secondary min-h-11"
+                  style={{ borderColor: 'var(--tl-avoid)', color: 'var(--tl-avoid)' }}
+                  onClick={() => setCleanSlateStep(2)}
+                >
+                  Continue
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="gc-btn-secondary min-h-11"
+                  style={{ borderColor: 'var(--tl-avoid)', color: 'var(--tl-avoid)' }}
+                  onClick={() => void handleCleanSlate()}
+                >
+                  Yes, delete everything
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between">
+    <div className="flex items-center justify-between gap-4">
       <span style={{ fontFamily: 'var(--font-body)', color: 'var(--text-muted)', fontSize: '0.875rem' }}>
         {label}
       </span>
-      <span style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', fontSize: '0.875rem' }}>
+      <span className="text-right" style={{ fontFamily: 'var(--font-mono)', color: 'var(--text-primary)', fontSize: '0.875rem' }}>
         {value}
       </span>
     </div>

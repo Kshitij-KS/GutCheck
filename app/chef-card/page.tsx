@@ -30,7 +30,7 @@ export default function ChefCardPage() {
           Share this with a restaurant, family cook, or host so they can serve you well.
         </p>
       </div>
-      <ChefCard rules={healthProfile.consolidatedRules} />
+      <ChefCard rules={healthProfile.consolidatedRules} content={healthProfile.chefCardContent} />
     </div>
   );
 }

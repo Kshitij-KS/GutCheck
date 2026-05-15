@@ -4,8 +4,8 @@
 
 import { motion } from 'framer-motion';
 import { TrafficLightBadge } from '@/components/shared/TrafficLight';
+import { OfflineScanBadge } from '@/components/scan/OfflineScanBadge';
 import type { DishScanResult } from '@/types';
-import { Wifi } from 'lucide-react';
 
 interface DishResultCardProps {
   result: DishScanResult;
@@ -29,9 +29,8 @@ export function DishResultCard({ result, delay = 0 }: DishResultCardProps) {
             {result.dishName}
           </p>
           {result.isOfflineResult && (
-            <div className="flex items-center gap-1 mt-0.5">
-              <Wifi size={10} style={{ color: 'var(--text-muted)' }} />
-              <span className="text-xs" style={{ color: 'var(--text-muted)' }}>Offline check</span>
+            <div className="mt-1">
+              <OfflineScanBadge variant="card" />
             </div>
           )}
         </div>
@@ -39,7 +38,7 @@ export function DishResultCard({ result, delay = 0 }: DishResultCardProps) {
       </div>
 
       <p
-        className="text-sm leading-relaxed"
+        className="text-sm leading-relaxed break-words"
         style={{ fontFamily: 'var(--font-body)', color: 'var(--text-secondary)' }}
       >
         {result.primaryReason}

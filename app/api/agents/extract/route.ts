@@ -8,15 +8,25 @@ import { z } from 'zod';
 import { getAgentModel } from '@/lib/gemini';
 import { EXTRACT_SYSTEM_PROMPT } from '@/lib/prompts/agent-extract.prompt';
 import { parseExtractedMarkers } from '@/lib/parsers/extract.parser';
+import {
+  API_INPUT_LIMITS,
+  detectPromptInjection,
+  isResponseSafe,
+  sanitizeInput,
+} from '@/lib/security';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 const RequestSchema = z.object({
-  text: z.string().optional().default(''),
-  base64: z.string().optional(),
-  mimeType: z.string().optional(),
+  text: z.string().max(API_INPUT_LIMITS.extractText).optional().default(''),
+  base64: z.string().max(API_INPUT_LIMITS.base64Chars).optional(),
+  mimeType: z.string().max(128).optional(),
   source: z.enum(['pdf', 'image']).default('pdf'),
 });
 
 export async function POST(req: NextRequest): Promise<Response> {
+  const limited = await checkRateLimit(req, 'agents', 'extract');
+  if (limited) return limited;
+
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -30,12 +40,27 @@ export async function POST(req: NextRequest): Promise<Response> {
         const parsed = RequestSchema.safeParse(body);
 
         if (!parsed.success) {
-          emit({ error: 'Invalid request', details: parsed.error.flatten() });
-          controller.close();
+          emit({ error: 'Invalid request', details: parsed.error.flatten(), done: true });
           return;
         }
 
-        const { text, base64, mimeType, source } = parsed.data;
+        let { text, base64, mimeType, source } = parsed.data;
+        text = sanitizeInput(text);
+
+        if (source === 'image' && base64 && mimeType) {
+          // vision — skip text injection path
+        } else {
+          const inj = detectPromptInjection(text);
+          if (!inj.isSafe) {
+            emit({
+              error:
+                inj.reason ??
+                'Input contains content that appears to override AI instructions. Paste only lab report text.',
+              done: true,
+            });
+            return;
+          }
+        }
 
         emit({ status: 'extracting', message: 'Reading your report...' });
 
@@ -44,22 +69,31 @@ export async function POST(req: NextRequest): Promise<Response> {
         let result;
 
         if (source === 'image' && base64 && mimeType) {
-          // Vision mode for images
-          const promptForImage = EXTRACT_SYSTEM_PROMPT.replace('from the provided text', 'from the provided lab report image');
+          const promptForImage = EXTRACT_SYSTEM_PROMPT.replace(
+            'from the provided text',
+            'from the provided lab report image'
+          );
           const response = await model.generateContent([
             { text: promptForImage + '\n\nExtract all blood markers from this lab report image.' },
             { inlineData: { data: base64, mimeType } },
           ]);
           const rawText = response.response.text();
+          if (!isResponseSafe(rawText)) {
+            emit({ error: 'AI response could not be parsed', done: true });
+            return;
+          }
           result = parseExtractedMarkers(rawText);
         } else {
-          // Text mode for PDFs
           const userPrompt = `Extract all blood markers from this lab report text:\n\n${text}`;
           const response = await model.generateContent([
             { text: EXTRACT_SYSTEM_PROMPT },
             { text: userPrompt },
           ]);
           const rawText = response.response.text();
+          if (!isResponseSafe(rawText)) {
+            emit({ error: 'AI response could not be parsed', done: true });
+            return;
+          }
           result = parseExtractedMarkers(rawText);
         }
 

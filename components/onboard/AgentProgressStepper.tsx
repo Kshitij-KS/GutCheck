@@ -5,7 +5,6 @@
 
 import { motion } from 'framer-motion';
 import { Check, Loader2, Shield, Brain } from 'lucide-react';
-import { StreamingText } from '@/components/shared/StreamingText';
 
 interface Step {
   label: string;
@@ -95,9 +94,22 @@ export function AgentProgressStepper({ stage, streamedText }: AgentProgressStepp
               {/* Streaming text for translation step */}
               {step.status === 'active' && i === 2 && (
                 <div className="mt-2">
-                  <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
-                    Analyzing markers and generating lifestyle recommendations...
-                  </p>
+                  {streamedText && streamedText.length > 0 ? (
+                    <p
+                      className="text-xs max-h-32 overflow-y-auto leading-relaxed rounded-lg p-2"
+                      style={{
+                        color: 'var(--text-secondary)',
+                        fontFamily: 'var(--font-body)',
+                        backgroundColor: 'var(--bg-secondary)',
+                      }}
+                    >
+                      {streamedText}
+                    </p>
+                  ) : (
+                    <p className="text-xs" style={{ color: 'var(--text-muted)' }}>
+                      Analyzing markers and generating lifestyle recommendations&hellip;
+                    </p>
+                  )}
                 </div>
               )}
             </div>

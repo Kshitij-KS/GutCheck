@@ -33,20 +33,21 @@ export function QuickQueryInput({ onSubmit, isLoading }: QuickQueryInputProps) {
 
   return (
     <div className="space-y-3">
-      <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row gap-2">
         <input
           type="text"
           value={value}
           onChange={(e) => { setValue(e.target.value); setEmergencyMessage(null); }}
           onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
           placeholder='e.g., "biryani", "telebhaja", "chole bhature"'
-          className="gc-input flex-1"
+          className="gc-input flex-1 min-h-11 w-full"
           disabled={isLoading}
         />
         <button
+          type="button"
           onClick={handleSubmit}
           disabled={isLoading || !value.trim()}
-          className="gc-btn-primary px-4 flex items-center gap-2 disabled:opacity-50"
+          className="gc-btn-primary px-4 min-h-11 shrink-0 flex items-center justify-center gap-2 disabled:opacity-50 w-full sm:w-auto"
         >
           <Send size={14} />
           {isLoading ? 'Checking...' : 'Check'}

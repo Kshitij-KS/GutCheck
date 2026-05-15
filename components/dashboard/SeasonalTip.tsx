@@ -10,12 +10,15 @@ import type { HealthProfile } from '@/types';
 
 interface SeasonalTipProps {
   profile: HealthProfile;
+  /** User's location hint. Defaults to 'India' for pan-India seasonal guidance. */
   location?: string;
 }
 
-export function SeasonalTip({ profile, location = '' }: SeasonalTipProps) {
+export function SeasonalTip({ profile, location = 'India' }: SeasonalTipProps) {
   const nudge = useMemo(() => {
-    return getSeasonalNudge(new Date(), location, profile);
+    // Use 'India' as the minimum default so pan-India nudges always fire in season
+    const loc = location.trim().length > 0 ? location : 'India';
+    return getSeasonalNudge(new Date(), loc, profile);
   }, [profile, location]);
 
   if (!nudge) return null;

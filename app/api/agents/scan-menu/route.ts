@@ -7,16 +7,26 @@ import { z } from 'zod';
 import { getStreamingModel } from '@/lib/gemini';
 import { SCAN_MENU_SYSTEM_PROMPT, buildMenuScanUserPrompt } from '@/lib/prompts/scan-menu.prompt';
 import { parseMenuScanResult } from '@/lib/parsers/scan.parser';
+import {
+  API_INPUT_LIMITS,
+  detectPromptInjection,
+  isResponseSafe,
+  sanitizeInput,
+} from '@/lib/security';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 const RequestSchema = z.object({
-  menuText: z.string().optional().default(''),
-  base64: z.string().optional(),
-  mimeType: z.string().optional(),
-  profileJson: z.string().min(2),
+  menuText: z.string().max(API_INPUT_LIMITS.menuText).optional().default(''),
+  base64: z.string().max(API_INPUT_LIMITS.base64Chars).optional(),
+  mimeType: z.string().max(128).optional(),
+  profileJson: z.string().min(2).max(API_INPUT_LIMITS.profileJson),
   isOffline: z.boolean().default(false),
 });
 
 export async function POST(req: NextRequest): Promise<Response> {
+  const limited = await checkRateLimit(req, 'agents', 'scan-menu');
+  if (limited) return limited;
+
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
@@ -31,11 +41,20 @@ export async function POST(req: NextRequest): Promise<Response> {
 
         if (!parsed.success) {
           emit({ error: 'Invalid request', done: true });
-          controller.close();
           return;
         }
 
-        const { menuText, base64, mimeType, profileJson, isOffline } = parsed.data;
+        let { menuText, base64, mimeType, profileJson, isOffline } = parsed.data;
+        menuText = sanitizeInput(menuText);
+        profileJson = sanitizeInput(profileJson);
+
+        if (!(base64 && mimeType)) {
+          const inj = detectPromptInjection(menuText);
+          if (!inj.isSafe) {
+            emit({ error: inj.reason ?? 'Input was rejected for safety.', done: true });
+            return;
+          }
+        }
 
         emit({ status: 'scanning', message: 'Analyzing menu with your profile...' });
 
@@ -44,7 +63,6 @@ export async function POST(req: NextRequest): Promise<Response> {
         let streamResult;
 
         if (base64 && mimeType) {
-          // Camera capture — vision mode
           streamResult = await model.generateContentStream([
             { text: SCAN_MENU_SYSTEM_PROMPT },
             { text: `Analyze this menu photo for a user with this health profile: ${profileJson}` },
@@ -65,6 +83,10 @@ export async function POST(req: NextRequest): Promise<Response> {
           emit({ chunk: chunkText });
         }
 
+        if (!isResponseSafe(fullText)) {
+          emit({ error: 'AI response could not be parsed', done: true });
+          return;
+        }
         const result = parseMenuScanResult(fullText);
         emit({ done: true, result });
       } catch (err) {

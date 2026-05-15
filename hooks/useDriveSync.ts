@@ -64,18 +64,12 @@ export function useDriveSync() {
       const driveData = await res.json() as DriveSyncPayload | null;
       if (!driveData?.profile) return;
 
-      const localUpdatedAt = healthProfile?.updatedAt ?? '';
-      const driveUpdatedAt = driveData.profile.updatedAt ?? '';
-
-      // Conflict resolution: take newer updatedAt
-      if (!healthProfile || driveUpdatedAt > localUpdatedAt) {
-        useGutCheckStore.getState().setHealthProfile(driveData.profile);
-        setDriveSync('synced');
-      }
+      useGutCheckStore.getState().mergeFromDrive(driveData);
+      setDriveSync('synced');
     } catch {
       // Silent failure on pull — local data is authoritative
     }
-  }, [isAuthenticated, healthProfile, setDriveSync]);
+  }, [isAuthenticated, setDriveSync]);
 
   const initiateAuth = useCallback(() => {
     void signIn('google');

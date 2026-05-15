@@ -27,7 +27,7 @@ const dmMono = DM_Mono({
 export const metadata: Metadata = {
   title: 'GutCheck — Know your body. Trust your meals.',
   description:
-    'GutCheck translates your blood report into everyday food wisdom. Privacy-first, India-aware wellness guidance — no data leaves your device.',
+    'GutCheck translates your blood report into everyday food wisdom. Privacy-first, India-aware guidance — your profile stays on your device; scans are processed securely and are not used to train public models. Not medical advice.',
   keywords: ['blood report', 'nutrition', 'diet', 'wellness', 'health', 'India', 'food guidance', 'privacy'],
   openGraph: {
     title: 'GutCheck — Know your body. Trust your meals.',
@@ -43,6 +43,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport = {
+  width: 'device-width' as const,
+  initialScale: 1,
   themeColor: '#5A7A5A',
 };
 

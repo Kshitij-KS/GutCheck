@@ -8,7 +8,7 @@ export function AppWelcome() {
   const router = useRouter();
 
   return (
-    <div className="min-h-[100dvh] bg-[var(--bg-primary)] flex flex-col px-6 py-12">
+    <div className="min-h-[100dvh] bg-[var(--bg-primary)] flex flex-col px-6 py-12 gc-safe-top">
       <div className="flex-1 flex flex-col justify-center">
         <motion.div
           initial={{ opacity: 0, y: 15 }}
@@ -38,7 +38,7 @@ export function AppWelcome() {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.3, duration: 0.4 }}
-        className="pb-8"
+        className="gc-pb-safe"
       >
         <button
           onClick={() => router.push('/onboard')}

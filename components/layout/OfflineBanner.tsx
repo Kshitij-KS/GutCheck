@@ -18,16 +18,16 @@ export function OfflineBanner() {
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -32 }}
           transition={{ duration: 0.3, ease: 'easeOut' }}
-          className="w-full flex items-center justify-center gap-2 py-2 px-4 text-sm z-50"
+          className="w-full flex items-center justify-center gap-2 py-2.5 px-4 text-sm z-50 text-left sm:text-center"
           style={{
             backgroundColor: 'var(--tl-moderate-bg)',
             color: 'var(--tl-moderate)',
             borderBottom: '1px solid var(--border)',
           }}
         >
-          <WifiOff size={14} />
+          <WifiOff size={14} className="shrink-0" />
           <span style={{ fontFamily: 'var(--font-body)' }}>
-            You&apos;re offline — GutCheck is using your cached profile for quick checks.
+            You&apos;re offline. Menu text checks use your cached profile; camera, photo, and grocery scans need internet.
           </span>
         </motion.div>
       )}

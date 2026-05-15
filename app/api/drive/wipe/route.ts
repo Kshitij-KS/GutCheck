@@ -2,19 +2,18 @@
 // Protected Drive wipe route — part of Clean Slate Protocol
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { getDriveAccessToken } from '@/lib/drive-auth';
 import { getDriveClient } from '@/lib/drive/client';
 import { wipeDriveData } from '@/lib/drive/wipe';
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  const session = await getServerSession(authOptions);
-  if (!session?.accessToken) {
+  const accessToken = await getDriveAccessToken(req);
+  if (!accessToken) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   try {
-    const drive = getDriveClient(session.accessToken as string);
+    const drive = getDriveClient(accessToken);
     await wipeDriveData(drive);
     return NextResponse.json({ success: true, wipedAt: new Date().toISOString() });
   } catch (err) {

@@ -5,6 +5,13 @@
 /* All colors are warm, muted, grounded. NEVER neon. NEVER harsh red.           */
 
 :root {
+  /* ─── Font Variable Bridge ──────────────────────────────────────────────────── */
+  /* Next.js generates --font-cormorant / --font-dm-sans / --font-dm-mono        */
+  /* All components use --font-display / --font-body / --font-mono               */
+  --font-display: var(--font-cormorant), 'Cormorant Garamond', Georgia, serif;
+  --font-body:    var(--font-dm-sans), 'DM Sans', system-ui, sans-serif;
+  --font-mono:    var(--font-dm-mono), 'DM Mono', 'Courier New', monospace;
+
   /* Backgrounds */
   --bg-primary:         #FAF8F4;   /* Warm off-white — never pure white */
   --bg-secondary:       #F3EFE8;   /* Warm sand */
@@ -189,6 +196,23 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
+}
+
+/* ─── PWA / notched devices ───────────────────────────────────────────────── */
+
+.gc-safe-top {
+  padding-top: max(0.5rem, env(safe-area-inset-top));
+}
+
+.gc-pb-safe {
+  padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+}
+
+/* ─── Mobile nav: lock body scroll when open ─────────────────────────────── */
+
+body.gc-nav-open {
+  overflow: hidden;
+  touch-action: none;
 }
 
 /* ─── Focus Ring ────────────────────────────────────────────────────────────── */

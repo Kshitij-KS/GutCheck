@@ -9,13 +9,32 @@ import { getAgentModel } from '@/lib/gemini';
 import { GUARDRAIL_SYSTEM_PROMPT } from '@/lib/prompts/agent-guardrail.prompt';
 import type { GuardrailResult, SpecialPopulation } from '@/types';
 import { PREGNANCY_REDIRECT, PEDIATRIC_REDIRECT } from '@/constants/critical-thresholds';
+import { API_INPUT_LIMITS, detectPromptInjection, isResponseSafe, sanitizeInput } from '@/lib/security';
+import { checkRateLimit } from '@/lib/rate-limit';
 
 const RequestSchema = z.object({
-  markersJson: z.string().min(2),
-  reportText: z.string().default(''),
+  markersJson: z.string().min(2).max(API_INPUT_LIMITS.markersJson),
+  reportText: z.string().max(API_INPUT_LIMITS.reportText).default(''),
+});
+
+function normalizeSpecialPopulation(value: string | undefined): SpecialPopulation {
+  const t = (value ?? 'none').toLowerCase().trim();
+  if (t === 'pregnant') return 'pregnant';
+  if (t === 'pediatric') return 'pediatric';
+  return 'none';
+}
+
+const GuardrailAiResponseSchema = z.object({
+  passed: z.boolean(),
+  flags: z.array(z.string()).optional().default([]),
+  specialPopulationDetected: z.string().optional().default('none'),
+  redirectMessage: z.string().nullable().optional(),
 });
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
+  const limited = await checkRateLimit(req, 'agents', 'guardrail');
+  if (limited) return limited;
+
   try {
     const body: unknown = await req.json();
     const parsed = RequestSchema.safeParse(body);
@@ -24,10 +43,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ error: 'Invalid request' }, { status: 400 });
     }
 
-    const { markersJson, reportText } = parsed.data;
+    const { markersJson, reportText: rawReport } = parsed.data;
+    const markersJsonClean = sanitizeInput(markersJson);
+    const reportText = sanitizeInput(rawReport);
+
+    const inj = detectPromptInjection(reportText);
+    if (!inj.isSafe) {
+      return NextResponse.json({ error: inj.reason ?? 'Report text was rejected for safety.' }, { status: 400 });
+    }
 
     const model = getAgentModel();
-    const userPrompt = `Review these extracted blood markers for special population signals.\n\nMARKERS: ${markersJson}\n\nREPORT TEXT CONTEXT: ${reportText.slice(0, 500)}`;
+    const userPrompt = `Review these extracted blood markers for special population signals.\n\nMARKERS: ${markersJsonClean}\n\nREPORT TEXT CONTEXT: ${reportText.slice(0, 500)}`;
 
     const response = await model.generateContent([
       { text: GUARDRAIL_SYSTEM_PROMPT },
@@ -35,20 +61,27 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     ]);
 
     const rawText = response.response.text();
-    const jsonMatch = rawText.match(/\{[\s\S]+\}/);
-    const jsonStr = jsonMatch ? jsonMatch[0] : rawText;
-    const aiResult: unknown = JSON.parse(jsonStr);
+    if (!isResponseSafe(rawText)) {
+      return NextResponse.json({ error: 'AI response could not be parsed' }, { status: 500 });
+    }
 
-    // Validate and map AI response
-    const guardrailResult = aiResult as {
-      passed: boolean;
-      flags: string[];
-      specialPopulationDetected: string;
-      redirectMessage: string | null;
-    };
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    const jsonStr = jsonMatch ? jsonMatch[0] : rawText.trim();
+    let unknownJson: unknown;
+    try {
+      unknownJson = JSON.parse(jsonStr);
+    } catch {
+      return NextResponse.json({ error: 'AI response could not be parsed' }, { status: 500 });
+    }
 
-    const population = (guardrailResult.specialPopulationDetected as SpecialPopulation) ?? 'none';
-    let redirectMessage = guardrailResult.redirectMessage;
+    const aiParsed = GuardrailAiResponseSchema.safeParse(unknownJson);
+    if (!aiParsed.success) {
+      return NextResponse.json({ error: 'AI response could not be parsed' }, { status: 500 });
+    }
+
+    const guardrailResult = aiParsed.data;
+    const population = normalizeSpecialPopulation(guardrailResult.specialPopulationDetected);
+    let redirectMessage = guardrailResult.redirectMessage ?? null;
 
     if (!guardrailResult.passed && !redirectMessage) {
       if (population === 'pregnant') redirectMessage = PREGNANCY_REDIRECT;
@@ -66,7 +99,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json(result);
   } catch (err) {
     const message = (err as Error).message ?? '';
-    if (message.includes('JSON') || message.includes('parse')) {
+    if (message.includes('JSON') || message.includes('parse') || message.includes('ZodError')) {
       return NextResponse.json({ error: 'AI response could not be parsed' }, { status: 500 });
     }
     console.error('[guardrail] Error:', message);

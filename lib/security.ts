@@ -5,6 +5,18 @@ export interface InjectionCheckResult {
   reason?: string;
 }
 
+/** Server-side payload caps for agent routes (characters unless noted). */
+export const API_INPUT_LIMITS = {
+  menuText: 200_000,
+  profileJson: 500_000,
+  groceryList: 100_000,
+  extractText: 600_000,
+  markersJson: 800_000,
+  reportText: 50_000,
+  /** Max length of base64 string (roughly ~15 MB decoded). */
+  base64Chars: 22_000_000,
+} as const;
+
 /**
  * Common prompt injection patterns — attacker tries to override the system role.
  * Runs server-side on raw user input before it reaches the LLM.

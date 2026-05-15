@@ -19,8 +19,8 @@ export function PageShell({ children, className, maxWidth = '7xl' }: PageShellPr
   }[maxWidth];
 
   return (
-    <main className={cn('mx-auto w-full px-4 py-8 sm:px-6', maxWidthClass, className)}>
+    <div className={cn('mx-auto w-full px-4 py-8 sm:px-6', maxWidthClass, className)}>
       {children}
-    </main>
+    </div>
   );
 }

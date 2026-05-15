@@ -28,7 +28,24 @@ export default function HomePage() {
     return () => mql.removeEventListener('change', onChange);
   }, [isOnboarded, router]);
 
-  if (!mounted) return null;
+  if (!mounted) {
+    return (
+      <div
+        className="min-h-[100dvh] min-h-screen flex flex-col items-center justify-center px-6"
+        style={{ backgroundColor: 'var(--bg-primary)' }}
+      >
+        <p
+          className="text-2xl tracking-tight"
+          style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}
+        >
+          GutCheck
+        </p>
+        <p className="mt-3 text-sm" style={{ color: 'var(--text-muted)' }}>
+          Loading&hellip;
+        </p>
+      </div>
+    );
+  }
   if (isOnboarded) return null;
 
   return isStandalone ? <AppWelcome /> : <WebLanding />;

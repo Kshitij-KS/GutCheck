@@ -14,7 +14,7 @@ export type TrafficLight = 'PRIORITIZE' | 'MODERATE' | 'AVOID';
 
 export type AgentStatus = 'idle' | 'running' | 'done' | 'error' | 'blocked';
 
-export type ScanMode = 'camera' | 'quick-query' | 'menu-text';
+export type ScanMode = 'camera' | 'menu-upload' | 'quick-query' | 'menu-text';
 
 export type DriveSync = 'synced' | 'pending' | 'error' | 'offline';
 
@@ -197,6 +197,8 @@ export interface GutCheckStore {
 
   // Actions
   setHealthProfile: (profile: HealthProfile) => void;
+  /** Merge Drive backup into local state: newer profile wins; histories union by id, newest first, capped. */
+  mergeFromDrive: (payload: DriveSyncPayload) => void;
   addScanResult: (result: MenuScanResult) => void;
   addGroceryResult: (result: GroceryAuditResult) => void;
   incrementScanCount: () => void;
@@ -245,11 +247,4 @@ export interface DriveSyncPayload {
   profile: HealthProfile | null;
   history: ReportHistoryEntry[];
   syncedAt: string;
-}
-
-// ─── Security ─────────────────────────────────────────────────────────────────
-
-export interface InjectionCheckResult {
-  isSafe: boolean;
-  reason?: string;
 }
