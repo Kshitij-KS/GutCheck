@@ -58,11 +58,11 @@
 │                                                                         │
 └──────────────┬──────────────────────────────────────────────────────────┘
                │
-   ┌───────────┴──────────────┐
-   │    Anthropic Claude API   │
-   │    (claude-sonnet-4-5-   │
-   │    20251001, streaming)   │
-   └──────────────────────────┘
+    ┌───────────┴──────────────┐
+    │   Google Gemini API       │
+    │   (gemini-2.5-flash,      │
+    │    streaming + JSON mode)  │
+    └──────────────────────────┘
 ```
 
 ---
@@ -74,7 +74,7 @@ Framework:         Next.js 14.2+ (App Router ONLY — no Pages Router)
 Language:          TypeScript 5.4+ (strict: true, noImplicitAny: true, NO any)
 Styling:           Tailwind CSS 3.4 + shadcn/ui components
 State:             Zustand 4.5 (persist middleware + devtools)
-AI:                @anthropic-ai/sdk 0.24+ (streaming)
+AI:                @google/generative-ai 0.21+ (gemini-2.5-flash, streaming + JSON mode)
 PDF (server):      pdf-parse 1.1.1
 PDF (client):      pdfjs-dist 4.x (canvas render for preview)
 Forms:             React Hook Form 7.5 + Zod 3.23 (all inputs validated)
@@ -85,6 +85,7 @@ Drive API:         googleapis 140+ (server-side only)
 PWA:               next-pwa 5.6 (service worker + offline support)
 Testing:           Vitest 1.x (unit tests for all agents/parsers)
 Linting:           ESLint + Prettier (enforced on commit)
+Rate Limiting:     @upstash/ratelimit (optional, no-op when unset)
 ```
 
 ---
@@ -120,6 +121,8 @@ gutcheck/
 │       │   └── scan-grocery/route.ts       # Grocery auditor
 │       ├── pdf/
 │       │   └── extract/route.ts            # PDF → text (server)
+│       ├── health/
+│       │   └── route.ts                    # Health check endpoint
 │       └── drive/
 │           ├── sync/route.ts               # Read/write Drive AppData
 │           └── wipe/route.ts               # Clean Slate Protocol
@@ -163,7 +166,7 @@ gutcheck/
 │       └── LoadingOrb.tsx                 # Organic loading animation
 │
 ├── lib/
-│   ├── anthropic.ts                        # Anthropic client singleton
+│   ├── gemini.ts                           # Gemini client singleton
 │   ├── prompts/
 │   │   ├── agent-extract.prompt.ts        # Agent 1 prompt
 │   │   ├── agent-guardrail.prompt.ts      # Agent 2 prompt
@@ -605,32 +608,33 @@ Full schema matches the HealthProfile interface (markers[] with foodRules, movem
 ```typescript
 // hooks/useAgentPipeline.ts
 
+// RELIABILITY FEATURES:
+// - Retry with exponential backoff: up to 2 retries (2s, 4s delays) on transient errors
+// - AbortController: all fetch calls abortable; cleanup on unmount
+// - Request deduplication: isRunningRef prevents double-firing
+// - Timeouts per stage: PDF (30s), Extract (45s), Guardrail (20s), Translate (90s)
+// - Error classification: retryable (parse, network, timeout) vs non-retryable (wrong doc, guardrail blocked)
+// - Graceful guardrail degradation: AI guardrail failure doesn't block if deterministic passed
+// - SSE buffer: proper stream: true + reader.releaseLock() in finally
+
 type PipelineState =
   | { stage: 'idle' }
   | { stage: 'extracting' }
   | { stage: 'guardrail_checking' }
   | { stage: 'guardrail_blocked'; result: GuardrailResult }
+  | { stage: 'unit_ambiguous'; markers: string[]; pendingMarkers: BloodMarker[]; reportText: string; reportDate: string | null; labName: string | null }
   | { stage: 'translating'; streamedText: string }
   | { stage: 'complete'; profile: HealthProfile }
-  | { stage: 'error'; message: string };
+  | { stage: 'error'; message: string; stageFailed: string; canRetry: boolean };
 
 export function useAgentPipeline() {
   const [state, setState] = useState<PipelineState>({ stage: 'idle' });
-  const setHealthProfile = useGutCheckStore((s) => s.setHealthProfile);
-  const addReportHistory = useGutCheckStore((s) => s.addReportHistory);
 
-  const run = useCallback(async (file: File, userContext?: UserContext) => {
-    // Step 0: Check for emergency symptom keywords in filename or metadata
-    // Step 1: Extract PDF text → POST /api/pdf/extract
-    // Step 2: POST /api/agents/extract → ExtractedMarkers[]
-    // Step 3: Deterministic guardrail check (thresholds.ts) — LOCAL, no API
-    // Step 4: POST /api/agents/guardrail (AI layer) — only if Step 3 passes
-    // Step 5: If guardrail blocked → setState blocked, return
-    // Step 6: POST /api/agents/translate (streaming) → HealthProfile
-    // Step 7: setHealthProfile + addReportHistory + trigger Drive sync
-  }, []);
-
-  return { state, run };
+  // run: starts pipeline with a file
+  // retry: retries from error state without re-upload (uses pendingFileRef)
+  // reset: aborts current request, clears all state
+  // resolveUnitAmbiguity: handles unit clarification flow
+  return { state, run, retry, reset, resolveUnitAmbiguity };
 }
 ```
 
@@ -1151,7 +1155,9 @@ export const TRAFFIC_LIGHT_LABELS: Record<TrafficLight, string> = {
   - Step 2: "Checking safety..." (Agent 2 running)
   - If blocked: GuardrailAlert modal — dismissible, non-alarming, shows redirect message
   - Step 3: "Building your profile..." (Agent 3 streaming — show StreamingText)
+  - Error state: shows which step failed with error icon, "Retry" button for transient errors
 - On complete: ProfileConfirmation view → "Save my profile" button
+- **Retry logic:** Transient errors (parse, network, timeout) show "Retry" button that re-attempts without re-uploading. Non-retryable errors (wrong document type) show "Upload a different report".
 - **Unit ambiguity handling:** If unitAmbiguous: true on ANY marker, show inline clarification modal before proceeding to Agent 2. "We noticed your Vitamin D is listed as '20' without a unit. Is this ng/mL or nmol/L?"
 - **Wrong report handling:** If Agent 1 returns extractionFailed: true → gentle message: "This doesn't look like a blood report. Please upload a lab report PDF or photo."
 
@@ -1318,15 +1324,17 @@ All API routes follow this exact pattern for consistency:
 ```typescript
 // Template for all /api/agents/* routes
 
-import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { getAgentModel, getStreamingModel } from '@/lib/gemini';
 
 // 1. Input validation schema (Zod)
 const RequestSchema = z.object({ /* ... */ });
 
-// 2. Anthropic client (singleton from lib/anthropic.ts)
-// Never instantiate inline — import from lib/anthropic.ts
+// 2. Gemini client (singleton from lib/gemini.ts)
+// Never instantiate inline — import from lib/gemini.ts
+// getAgentModel(): JSON mode for non-streaming responses
+// getStreamingModel(): streaming mode for SSE responses
 
 // 3. For streaming routes: return ReadableStream with SSE format
 // Event format: `data: ${JSON.stringify(payload)}\n\n`
@@ -1336,10 +1344,16 @@ const RequestSchema = z.object({ /* ... */ });
 
 // 5. All routes must handle:
 //    - Zod validation failure → 400
-//    - Anthropic API error → 500 with sanitized message
+//    - Gemini API error → 500 with sanitized message
 //    - Parse failure → 500 with "AI response could not be parsed"
 
 // 6. Never log user health data — only log errors and request metadata
+
+// 7. Security layers (all routes):
+//    - Rate limiting via checkRateLimit() (Upstash, no-op when unset)
+//    - Prompt injection detection via detectPromptInjection()
+//    - Input sanitization via sanitizeInput()
+//    - Response safety check via isResponseSafe()
 ```
 
 ### Auth Middleware
@@ -1361,14 +1375,20 @@ export const config = { matcher: ['/api/drive/:path*'] };
 ```bash
 # .env.local
 
-# Anthropic
-ANTHROPIC_API_KEY=sk-ant-...
+# Google Gemini (required for AI routes)
+GEMINI_API_KEY=...
 
-# Google OAuth + Drive
+# Google OAuth + Drive (required for Drive sync, optional for basic app)
 GOOGLE_CLIENT_ID=...
 GOOGLE_CLIENT_SECRET=...
 NEXTAUTH_SECRET=...
 NEXTAUTH_URL=http://localhost:3000   # Change for production
+
+# Optional: Upstash Redis rate limiting (no-op when unset)
+UPSTASH_REDIS_REST_URL=...
+UPSTASH_REDIS_REST_TOKEN=...
+RATE_LIMIT_AGENTS_PER_MINUTE=45
+RATE_LIMIT_PDF_PER_MINUTE=20
 
 # App
 NEXT_PUBLIC_APP_URL=http://localhost:3000
@@ -1382,54 +1402,51 @@ NEXT_PUBLIC_APP_VERSION=1.0.0
 ```json
 {
   "name": "gutcheck",
-  "version": "1.0.0",
+  "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint . --max-warnings 0",
-    "format": "prettier --write .",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "icons": "node scripts/generate-pwa-icons.mjs"
   },
   "dependencies": {
-    "next": "14.2.5",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "typescript": "^5.4.5",
-    "@anthropic-ai/sdk": "^0.24.0",
-    "next-auth": "^4.24.7",
-    "googleapis": "^140.0.0",
-    "zustand": "^4.5.4",
-    "zod": "^3.23.8",
-    "react-hook-form": "^7.52.2",
-    "@hookform/resolvers": "^3.9.0",
-    "framer-motion": "^11.3.8",
-    "lucide-react": "^0.414.0",
-    "pdf-parse": "^1.1.1",
-    "pdfjs-dist": "^4.4.168",
-    "uuid": "^10.0.0",
+    "@google/generative-ai": "^0.21.0",
+    "@hookform/resolvers": "^3.10.0",
+    "@upstash/ratelimit": "^2.0.8",
+    "@upstash/redis": "^1.38.0",
+    "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "tailwind-merge": "^2.4.0",
-    "class-variance-authority": "^0.7.0",
-    "next-pwa": "^5.6.0",
-    "recharts": "^2.12.7"
+    "framer-motion": "^11.18.2",
+    "googleapis": "^171.4.0",
+    "lucide-react": "^0.414.0",
+    "next": "16.2.4",
+    "next-auth": "^4.24.14",
+    "pdf-parse": "^1.1.4",
+    "pdfjs-dist": "^4.10.38",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-hook-form": "^7.73.1",
+    "recharts": "^3.8.1",
+    "tailwind-merge": "^2.6.1",
+    "uuid": "^10.0.0",
+    "zod": "^3.25.76",
+    "zustand": "^4.5.7"
   },
   "devDependencies": {
-    "@types/node": "^20",
-    "@types/react": "^18",
-    "@types/react-dom": "^18",
-    "@types/uuid": "^10",
-    "@types/pdf-parse": "^1",
-    "tailwindcss": "^3.4.6",
-    "autoprefixer": "^10.4.19",
-    "postcss": "^8.4.39",
-    "eslint": "^8.57.0",
-    "eslint-config-next": "14.2.5",
-    "prettier": "^3.3.3",
-    "vitest": "^1.6.0",
-    "@vitest/ui": "^1.6.0"
+    "@vitest/ui": "^4.1.5",
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "20.19.39",
+    "@types/pdf-parse": "^1.1.5",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/uuid": "^10.0.0",
+    "sharp": "^0.34.5",
+    "tailwindcss": "^4",
+    "typescript": "5.9.3",
+    "vitest": "^4.1.5"
   }
 }
 ```
@@ -1481,7 +1498,7 @@ Phase 1 — Foundation (no UI)
   5.  lib/prompts/*.ts                       ← All 5 prompts
   6.  lib/parsers/*.ts                       ← All Zod parsers (unit test these)
   7.  store/gutcheck.store.ts                ← Zustand store
-  8.  lib/anthropic.ts                       ← Singleton client
+  8.  lib/gemini.ts                          ← Singleton client (production: throws if key missing)
 
 Phase 2 — API Routes
   9.  app/api/pdf/extract/route.ts           ← PDF text extraction
@@ -1490,6 +1507,7 @@ Phase 2 — API Routes
   12. app/api/agents/translate/route.ts      ← Agent 3 (streaming)
   13. app/api/agents/scan-menu/route.ts      ← Menu scanner (streaming)
   14. app/api/agents/scan-grocery/route.ts   ← Grocery auditor (streaming)
+  15. app/api/health/route.ts                ← Health check endpoint
 
 Phase 3 — Core Hooks
   15. hooks/useAgentPipeline.ts             ← Orchestrates all 3 agents
@@ -1549,7 +1567,49 @@ Every item below is required. None are optional.
 
 ---
 
-## 21. WHAT THE AI EVALUATOR WILL LOOK FOR
+## 21. DEPLOYMENT READINESS
+
+### Health Check Endpoint
+- `GET /api/health` → `{ status: 'ok', version, timestamp, geminiConfigured: boolean, uptime }`
+- No rate limiting, no auth — used by load balancers and Docker health checks
+
+### Security Headers (next.config.ts)
+All routes receive:
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `Strict-Transport-Security: max-age=31536000; includeSubDomains`
+- `Referrer-Policy: strict-origin-when-cross-origin`
+- `Permissions-Policy: camera=(), microphone=(), geolocation=()`
+
+### Environment Validation
+- Production: throws on startup if `GEMINI_API_KEY` is missing (fail fast)
+- Development: console.warn only
+
+### Docker
+- Multi-stage build: deps → builder → runner
+- `serverExternalPackages: ['pdf-parse']` ensures native module compatibility
+- `.dockerignore` excludes dev files, docs, node_modules, .env files
+- Runs as non-root user (`nextjs`)
+
+### Environment Variables
+```bash
+# Required
+GEMINI_API_KEY=...
+
+# Required for Drive sync (optional for basic app)
+GOOGLE_CLIENT_ID=...
+GOOGLE_CLIENT_SECRET=...
+NEXTAUTH_SECRET=...
+NEXTAUTH_URL=http://localhost:3000
+
+# Optional: Upstash Redis rate limiting
+UPSTASH_REDIS_REST_URL=...
+UPSTASH_REDIS_REST_TOKEN=...
+```
+
+---
+
+## 22. WHAT THE AI EVALUATOR WILL LOOK FOR
 
 This codebase will be evaluated by AI for quality. Optimize for these signals:
 

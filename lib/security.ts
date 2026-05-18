@@ -96,12 +96,28 @@ export function validateFileUpload(
 /**
  * Checks if an LLM response has gone off-rails (model followed an injection).
  * Heuristic: valid responses are JSON objects; anything else is suspicious.
+ * Strips markdown code fences and allows brief preamble text before JSON.
  */
 export function isResponseSafe(rawText: string): boolean {
   const trimmed = rawText.trim();
-  // Valid response must start with { (JSON object)
-  if (!trimmed.startsWith('{')) return false;
+
+  // Strip markdown code fences if present
+  let content = trimmed;
+  const fenceMatch = content.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch) {
+    content = fenceMatch[1]?.trim() ?? trimmed;
+  }
+
+  // Find the JSON object boundaries — allow preamble text before {
+  const firstBrace = content.indexOf('{');
+  const lastBrace = content.lastIndexOf('}');
+  if (firstBrace === -1 || lastBrace === -1 || lastBrace <= firstBrace) {
+    return false;
+  }
+
+  const jsonPortion = content.slice(firstBrace, lastBrace + 1);
+
   // Red flags: code blocks, executable language keywords at top level
   const redFlags = /^(import |def |function |class |#!\/|<script)/m;
-  return !redFlags.test(trimmed.slice(0, 200));
+  return !redFlags.test(jsonPortion.slice(0, 200));
 }

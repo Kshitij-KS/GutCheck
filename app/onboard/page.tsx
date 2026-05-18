@@ -34,7 +34,7 @@ function OnboardContent() {
   const isOnboarded = useGutCheckStore((s) => s.isOnboarded);
   const setHealthProfile = useGutCheckStore((s) => s.setHealthProfile);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const { state, run, reset, resolveUnitAmbiguity } = useAgentPipeline();
+  const { state, run, reset, resolveUnitAmbiguity, retry } = useAgentPipeline();
 
   useEffect(() => {
     if (isOnboarded && !isReplace) router.replace('/dashboard');
@@ -69,6 +69,17 @@ function OnboardContent() {
   const isComplete = state.stage === 'complete';
   const isUnitAmbiguous = state.stage === 'unit_ambiguous';
   const isProcessing = ['extracting', 'guardrail_checking', 'translating'].includes(state.stage);
+
+  const getErrorMessage = () => {
+    if (state.stage !== 'error') return '';
+    const msg = state.message;
+    if (msg.includes("doesn't look like a blood report")) return msg;
+    if (msg.includes('Retrying')) return msg;
+    if (msg.toLowerCase().includes('timeout')) return 'The connection timed out. Your file is still selected — tap Retry to try again.';
+    if (msg.toLowerCase().includes('network') || msg.toLowerCase().includes('fetch')) return 'Connection interrupted. Check your internet and tap Retry.';
+    if (msg.toLowerCase().includes('parse') || msg.toLowerCase().includes('json')) return 'The AI had trouble understanding the report. Tap Retry to try again with a fresh attempt.';
+    return msg;
+  };
 
   return (
     <div className="min-h-[100dvh] min-h-screen" style={{ backgroundColor: 'var(--bg-primary)' }}>
@@ -203,12 +214,19 @@ function OnboardContent() {
               animate={{ opacity: 1 }}
               className="gc-card p-6 text-center"
             >
-              <p className="mb-4" style={{ fontFamily: 'var(--font-body)', color: 'var(--text-secondary)' }}>
-                {state.message}
+              <p className="mb-6 leading-relaxed" style={{ fontFamily: 'var(--font-body)', color: 'var(--text-secondary)' }}>
+                {getErrorMessage()}
               </p>
-              <button type="button" onClick={reset} className="gc-btn-secondary">
-                Try again
-              </button>
+              <div className="flex gap-3 justify-center flex-wrap">
+                {state.canRetry && (
+                  <button type="button" onClick={() => void retry()} className="gc-btn-primary">
+                    Retry
+                  </button>
+                )}
+                <button type="button" onClick={reset} className="gc-btn-secondary">
+                  {state.canRetry ? 'Upload a different report' : 'Try again'}
+                </button>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>

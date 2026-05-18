@@ -47,12 +47,27 @@ export const ExtractedMarkersSchema = z.object({
 export type ExtractedMarkersOutput = z.infer<typeof ExtractedMarkersSchema>;
 
 /**
+ * Extract JSON from raw AI response using multiple strategies.
+ */
+function extractJson(raw: string): string {
+  const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch && fenceMatch[1]) return fenceMatch[1];
+
+  const firstBrace = raw.indexOf('{');
+  const lastBrace = raw.lastIndexOf('}');
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    return raw.slice(firstBrace, lastBrace + 1);
+  }
+
+  return raw;
+}
+
+/**
  * Parse and validate Agent 1 output.
  * Throws if AI returned malformed JSON — caller returns 500.
  */
 export function parseExtractedMarkers(raw: string): ExtractedMarkersOutput {
-  const jsonMatch = raw.match(/\{[\s\S]+\}/);
-  const jsonStr = jsonMatch ? jsonMatch[0] : raw;
+  const jsonStr = extractJson(raw);
   const parsed: unknown = JSON.parse(jsonStr);
   return ExtractedMarkersSchema.parse(parsed);
 }

@@ -3,13 +3,18 @@
 
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-if (!process.env.GEMINI_API_KEY) {
+const apiKey = process.env.GEMINI_API_KEY;
+
+if (!apiKey) {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      '[GutCheck] GEMINI_API_KEY is required in production. Set it in your environment variables.'
+    );
+  }
   console.warn('[GutCheck] GEMINI_API_KEY is not set. AI features will not work.');
 }
 
-export const geminiClient = new GoogleGenerativeAI(
-  process.env.GEMINI_API_KEY ?? ''
-);
+export const geminiClient = new GoogleGenerativeAI(apiKey ?? '');
 
 // Standard model for all agents (supports JSON mode + streaming)
 export const GEMINI_MODEL = 'gemini-2.5-flash';

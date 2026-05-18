@@ -1,8 +1,5 @@
 'use client';
 
-// hooks/useMenuScan.ts
-// Menu scanning hook — checks offline status before every call
-
 import { useState, useCallback } from 'react';
 import { useGutCheckStore } from '@/store/gutcheck.store';
 import { useOfflineDetection } from '@/hooks/useOfflineDetection';
@@ -31,7 +28,6 @@ export function useMenuScan() {
 
     setScanState({ status: 'scanning' });
 
-    // Offline fallback
     if (!isOnline) {
       const tree = healthProfile.offlineFallbackTree;
       const lines = menuText.split('\n').filter((l) => l.trim().length > 0);
@@ -59,7 +55,6 @@ export function useMenuScan() {
       return;
     }
 
-    // Online — call API
     try {
       const res = await fetch('/api/agents/scan-menu', {
         method: 'POST',
@@ -129,20 +124,34 @@ export function useMenuScan() {
 
 async function consumeSSEStream<T>(res: Response): Promise<T | null> {
   if (!res.body) return null;
+
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let result: T | null = null;
+  let buffer = '';
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    const lines = decoder.decode(value).split('\n');
-    for (const line of lines) {
-      if (!line.startsWith('data: ')) continue;
-      const payload = JSON.parse(line.slice(6)) as Record<string, unknown>;
-      if (payload.done && payload.result) result = payload.result as T;
-      if (payload.error) throw new Error(payload.error as string);
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        try {
+          const payload = JSON.parse(line.slice(6)) as Record<string, unknown>;
+          if (payload.done && payload.result) result = payload.result as T;
+          if (payload.error) throw new Error(payload.error as string);
+        } catch {
+          // Skip malformed SSE lines
+        }
+      }
     }
+  } finally {
+    reader.releaseLock();
   }
 
   return result;

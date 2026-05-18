@@ -4,11 +4,11 @@
 // 3-step visual stepper showing pipeline stage
 
 import { motion } from 'framer-motion';
-import { Check, Loader2, Shield, Brain } from 'lucide-react';
+import { Check, Loader2, Brain, AlertCircle } from 'lucide-react';
 
 interface Step {
   label: string;
-  status: 'waiting' | 'active' | 'done';
+  status: 'waiting' | 'active' | 'done' | 'error';
 }
 
 interface AgentProgressStepperProps {
@@ -22,26 +22,30 @@ export function AgentProgressStepper({ stage, streamedText }: AgentProgressStepp
       label: 'Reading your report',
       status:
         stage === 'extracting' ? 'active'
-        : ['guardrail_checking', 'translating', 'complete'].includes(stage) ? 'done'
+        : stage === 'error' ? 'error'
+        : ['guardrail_checking', 'guardrail_blocked', 'translating', 'complete', 'unit_ambiguous'].includes(stage) ? 'done'
         : 'waiting',
     },
     {
       label: 'Checking safety',
       status:
         stage === 'guardrail_checking' ? 'active'
-        : ['translating', 'complete'].includes(stage) ? 'done'
+        : stage === 'error' ? 'error'
+        : ['translating', 'complete', 'unit_ambiguous'].includes(stage) ? 'done'
+        : ['guardrail_blocked'].includes(stage) ? 'done'
         : 'waiting',
     },
     {
       label: 'Building your profile',
       status:
         stage === 'translating' ? 'active'
+        : stage === 'error' ? 'error'
         : stage === 'complete' ? 'done'
         : 'waiting',
     },
   ];
 
-  const icons = [Brain, Shield, Brain];
+  const icons = [Brain, Brain, Brain];
 
   return (
     <div className="w-full max-w-md mx-auto">
@@ -61,10 +65,12 @@ export function AgentProgressStepper({ stage, streamedText }: AgentProgressStepp
               style={{
                 backgroundColor:
                   step.status === 'done' ? 'var(--tl-prioritize-bg)'
+                  : step.status === 'error' ? 'var(--tl-avoid-bg)'
                   : step.status === 'active' ? 'var(--bg-secondary)'
                   : 'var(--bg-secondary)',
                 border: `2px solid ${
                   step.status === 'done' ? 'var(--tl-prioritize)'
+                  : step.status === 'error' ? 'var(--tl-avoid)'
                   : step.status === 'active' ? 'var(--accent)'
                   : 'var(--border-strong)'
                 }`,
@@ -72,6 +78,8 @@ export function AgentProgressStepper({ stage, streamedText }: AgentProgressStepp
             >
               {step.status === 'done' ? (
                 <Check size={16} style={{ color: 'var(--tl-prioritize)' }} />
+              ) : step.status === 'error' ? (
+                <AlertCircle size={16} style={{ color: 'var(--tl-avoid)' }} />
               ) : step.status === 'active' ? (
                 <Loader2 size={16} className="animate-spin" style={{ color: 'var(--accent)' }} />
               ) : (
