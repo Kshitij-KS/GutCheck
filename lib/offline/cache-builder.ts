@@ -5,6 +5,15 @@
 import type { HealthProfile, OfflineFallbackTree } from '@/types';
 import { INGREDIENT_SYNONYMS } from '@/constants/regional-foods';
 
+function takeFirstN<T>(set: Set<T>, n: number): T[] {
+  const result: T[] = [];
+  for (const item of set) {
+    if (result.length >= n) break;
+    result.push(item);
+  }
+  return result;
+}
+
 /**
  * Build an offline fallback tree from a health profile.
  * Deduplicates, lowercases, adds regional synonyms.
@@ -46,9 +55,9 @@ export function buildOfflineFallbackTree(profile: HealthProfile): OfflineFallbac
   }
 
   return {
-    avoidKeywords: Array.from(avoidSet).slice(0, 80),    // cap for size
-    moderateKeywords: Array.from(moderateSet).slice(0, 80),
-    prioritizeKeywords: Array.from(prioritizeSet).slice(0, 80),
+    avoidKeywords: takeFirstN(avoidSet, 80),    // cap for size
+    moderateKeywords: takeFirstN(moderateSet, 80),
+    prioritizeKeywords: takeFirstN(prioritizeSet, 80),
     lastBuiltAt: new Date().toISOString(),
   };
 }
