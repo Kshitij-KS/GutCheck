@@ -19,7 +19,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const data = await loadFromDrive(drive);
     return NextResponse.json(data ?? { profile: null, history: [] });
   } catch (err) {
-    console.error('[drive/sync GET]', (err as Error).message);
+    console.error('[drive/sync GET]', 'An error occurred while loading from Drive');
     return NextResponse.json({ error: 'Failed to load from Drive' }, { status: 500 });
   }
 }
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     await syncToDrive(drive, payload);
     return NextResponse.json({ success: true, syncedAt: new Date().toISOString() });
   } catch (err) {
-    console.error('[drive/sync POST]', (err as Error).message);
+    console.error('[drive/sync POST]', 'An error occurred while syncing to Drive');
     return NextResponse.json({ error: 'Failed to sync to Drive' }, { status: 500 });
   }
 }
