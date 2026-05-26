@@ -1,25 +1,42 @@
-// lib/guardrail/symptom-keywords.ts
-// Emergency symptom keyword detection — runs CLIENT-SIDE before any API call
+export const EMERGENCY_KEYWORDS = [
+  'chest pain', 'chest tightness', 'left arm pain', 'jaw pain',
+  'shortness of breath', "can't breathe", 'difficulty breathing',
+  'severe pain', 'crushing pain', 'numbness in arm', 'stroke',
+  'unconscious', 'fainted', 'heart attack', 'seizure', 'blood vomit',
+  'coughing blood', 'passing blood', 'severe allergic', 'anaphylaxis',
+];
 
-import { EMERGENCY_SYMPTOM_KEYWORDS, EMERGENCY_RESPONSE } from '@/constants/critical-thresholds';
+export const DIAGNOSTIC_KEYWORDS = [
+  'diagnose',
+  'do i have',
+  'is this cancer',
+  'what disease',
+  'what condition',
+];
 
-/**
- * Client-side safety check for Quick-Query input.
- * Runs instantly with ZERO latency — no API call ever made for emergency inputs.
- */
 export function checkQuickQuerySafety(input: string): {
-  safe: boolean;
-  emergencyResponse?: string;
+  isSafe: boolean;
+  reason?: string;
 } {
-  const lower = input.toLowerCase().trim();
+  const lowerInput = input.toLowerCase();
 
-  const hasEmergencyKeyword = EMERGENCY_SYMPTOM_KEYWORDS.some((kw) =>
-    lower.includes(kw)
-  );
-
-  if (hasEmergencyKeyword) {
-    return { safe: false, emergencyResponse: EMERGENCY_RESPONSE };
+  // 1. Check for immediate medical emergencies
+  const emergencyMatch = EMERGENCY_KEYWORDS.find((kw) => lowerInput.includes(kw));
+  if (emergencyMatch) {
+    return {
+      isSafe: false,
+      reason: `Emergency keyword detected: "${emergencyMatch}". Please seek immediate medical attention or call emergency services.`,
+    };
   }
 
-  return { safe: true };
+  // 2. Check for diagnostic seeking
+  const diagnosticMatch = DIAGNOSTIC_KEYWORDS.find((kw) => lowerInput.includes(kw));
+  if (diagnosticMatch) {
+    return {
+      isSafe: false,
+      reason: `Diagnostic query detected: "${diagnosticMatch}". GutCheck cannot diagnose conditions. Please consult a doctor.`,
+    };
+  }
+
+  return { isSafe: true };
 }

@@ -22,8 +22,8 @@ export function QuickQueryInput({ onSubmit, isLoading }: QuickQueryInputProps) {
 
     // Client-side emergency check — BEFORE any API call
     const safety = checkQuickQuerySafety(value);
-    if (!safety.safe) {
-      setEmergencyMessage(safety.emergencyResponse ?? null);
+    if (!safety.isSafe) {
+      setEmergencyMessage(safety.reason ?? null);
       return;
     }
 
