@@ -25,6 +25,7 @@ export function SaveProfilePrompt() {
         }}
       >
         <button 
+          aria-label="Dismiss save profile prompt"
           onClick={() => setDismissed(true)}
           className="absolute top-2 right-2 p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
         >

@@ -20,17 +20,18 @@ export function TrendSparkline({ markerName, markerId, history }: TrendSparkline
   if (history.length < 2) return null;
 
   // Build data points from history
-  const data = history
-    .slice()
-    .reverse()
-    .map((entry) => {
-      const marker = entry.profileSnapshot.markers.find((m) => m.id === markerId);
-      return {
+  const data: { date: string; value: number }[] = [];
+  for (let i = history.length - 1; i >= 0; i--) {
+    const entry = history[i];
+    if (!entry) continue;
+    const marker = entry.profileSnapshot.markers.find((m) => m.id === markerId);
+    if (marker?.numericValue != null) {
+      data.push({
         date: formatDate(entry.uploadedAt),
-        value: marker?.numericValue ?? null,
-      };
-    })
-    .filter((d) => d.value !== null);
+        value: marker.numericValue,
+      });
+    }
+  }
 
   if (data.length < 2) return null;
 

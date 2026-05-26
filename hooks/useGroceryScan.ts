@@ -29,8 +29,17 @@ export function useGroceryScan() {
     if (!isOnline) {
       const tree = healthProfile.offlineFallbackTree;
       const lines = groceryList.split('\n').filter((l) => l.trim().length > 0);
+      let greatCount = 0;
+      let moderateCount = 0;
+      let reconsiderCount = 0;
+
       const items: GroceryItem[] = lines.map((line) => {
         const check = offlineQuickCheck(line, tree);
+
+        if (check.classification === 'PRIORITIZE') greatCount++;
+        else if (check.classification === 'MODERATE') moderateCount++;
+        else if (check.classification === 'AVOID') reconsiderCount++;
+
         return {
           name: line.trim(),
           classification: check.classification,
@@ -39,10 +48,6 @@ export function useGroceryScan() {
           swap: null,
         };
       });
-
-      const greatCount = items.filter((i) => i.classification === 'PRIORITIZE').length;
-      const moderateCount = items.filter((i) => i.classification === 'MODERATE').length;
-      const reconsiderCount = items.filter((i) => i.classification === 'AVOID').length;
 
       const result: GroceryAuditResult = {
         items,

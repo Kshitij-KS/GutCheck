@@ -97,6 +97,8 @@ export function MarkerCard({ marker, delay = 0 }: MarkerCardProps) {
 
         {/* Expand button */}
         <button
+          aria-expanded={isExpanded}
+          aria-label={isExpanded ? "Hide food guidance" : "Show food guidance"}
           onClick={() => setIsExpanded(!isExpanded)}
           className="mt-3 flex items-center gap-1 text-xs transition-colors"
           style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}

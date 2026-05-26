@@ -78,22 +78,18 @@ function extractKeywords(phrase: string): string[] {
 
 function expandWithSynonyms(set: Set<string>): void {
   const toAdd: string[] = [];
+  const entries = Object.entries(INGREDIENT_SYNONYMS);
 
   for (const term of set) {
-    // Check if this term matches any synonym key
-    for (const [canonical, synonyms] of Object.entries(INGREDIENT_SYNONYMS)) {
-      if (term.includes(canonical) || canonical.includes(term)) {
-        toAdd.push(canonical);
-        toAdd.push(...synonyms);
-      }
+    for (const [canonical, synonyms] of entries) {
+      // Check if the term matches the canonical name or any of the synonyms
+      const match =
+        term.includes(canonical) ||
+        canonical.includes(term) ||
+        synonyms.some((synonym) => term.includes(synonym) || synonym.includes(term));
 
-      // Check against synonyms
-      for (const synonym of synonyms) {
-        if (term.includes(synonym) || synonym.includes(term)) {
-          toAdd.push(canonical);
-          toAdd.push(...synonyms);
-          break;
-        }
+      if (match) {
+        toAdd.push(canonical, ...synonyms);
       }
     }
   }

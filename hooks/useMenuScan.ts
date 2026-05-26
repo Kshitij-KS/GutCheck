@@ -31,10 +31,17 @@ export function useMenuScan() {
     if (!isOnline) {
       const tree = healthProfile.offlineFallbackTree;
       const lines = menuText.split('\n').filter((l) => l.trim().length > 0);
+      const bestChoices: string[] = [];
       const dishes: DishScanResult[] = lines.map((line) => {
         const check = offlineQuickCheck(line, tree);
+        const dishName = line.trim();
+
+        if (check.classification === 'PRIORITIZE' && bestChoices.length < 3) {
+          bestChoices.push(dishName);
+        }
+
         return {
-          dishName: line.trim(),
+          dishName,
           score: check.classification === 'PRIORITIZE' ? 75 : check.classification === 'MODERATE' ? 50 : 20,
           hiddenIngredients: [],
           modification: null,
@@ -45,7 +52,7 @@ export function useMenuScan() {
       const result: MenuScanResult = {
         dishes,
         scanSummary: 'You are offline — results based on your cached profile keyword matching.',
-        bestChoices: dishes.filter((d) => d.classification === 'PRIORITIZE').map((d) => d.dishName).slice(0, 3),
+        bestChoices,
         timestamp: new Date().toISOString(),
       };
 
