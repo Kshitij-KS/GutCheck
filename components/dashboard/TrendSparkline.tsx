@@ -21,10 +21,26 @@ export function TrendSparkline({ markerName, markerId, history }: TrendSparkline
 
   // Build data points from history
   const data: { date: string; value: number }[] = [];
+  let cachedIndex = -1;
+
   for (let i = history.length - 1; i >= 0; i--) {
     const entry = history[i];
     if (!entry) continue;
-    const marker = entry.profileSnapshot.markers.find((m) => m.id === markerId);
+
+    const markers = entry.profileSnapshot.markers;
+    let marker = undefined;
+
+    // Fast path: Check if the marker is at the same index as the previous entry
+    if (cachedIndex >= 0 && cachedIndex < markers.length && markers[cachedIndex]?.id === markerId) {
+      marker = markers[cachedIndex];
+    } else {
+      // Fallback: Find the marker index and update cache
+      cachedIndex = markers.findIndex((m) => m.id === markerId);
+      if (cachedIndex !== -1) {
+        marker = markers[cachedIndex];
+      }
+    }
+
     if (marker?.numericValue != null) {
       data.push({
         date: formatDate(entry.uploadedAt),
