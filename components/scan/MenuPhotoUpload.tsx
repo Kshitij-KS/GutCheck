@@ -127,6 +127,7 @@ export function MenuPhotoUpload({ onUpload, isLoading }: MenuPhotoUploadProps) {
               <input
                 ref={inputRef}
                 type="file"
+                aria-label="Upload menu photo"
                 accept={ACCEPTED_IMAGE_TYPES.join(',')}
                 className="sr-only"
                 disabled={isLoading}
@@ -159,6 +160,7 @@ export function MenuPhotoUpload({ onUpload, isLoading }: MenuPhotoUploadProps) {
 
               <button
                 type="button"
+                aria-label="Choose photo"
                 disabled={isLoading}
                 onClick={(e) => { e.stopPropagation(); inputRef.current?.click(); }}
                 className="gc-btn-primary mt-6 inline-flex min-h-11 items-center justify-center gap-2 disabled:opacity-50"
@@ -261,6 +263,7 @@ export function MenuPhotoUpload({ onUpload, isLoading }: MenuPhotoUploadProps) {
               <input
                 ref={inputRef}
                 type="file"
+                aria-label="Upload menu photo"
                 accept={ACCEPTED_IMAGE_TYPES.join(',')}
                 className="sr-only"
                 disabled={isLoading}

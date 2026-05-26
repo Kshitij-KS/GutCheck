@@ -36,6 +36,7 @@ export function QuickQueryInput({ onSubmit, isLoading }: QuickQueryInputProps) {
       <div className="flex flex-col sm:flex-row gap-2">
         <input
           type="text"
+          aria-label="Dish or ingredient name"
           value={value}
           onChange={(e) => { setValue(e.target.value); setEmergencyMessage(null); }}
           onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
@@ -45,6 +46,7 @@ export function QuickQueryInput({ onSubmit, isLoading }: QuickQueryInputProps) {
         />
         <button
           type="button"
+          aria-label="Check dish safety"
           onClick={handleSubmit}
           disabled={isLoading || !value.trim()}
           className="gc-btn-primary px-4 min-h-11 shrink-0 flex items-center justify-center gap-2 disabled:opacity-50 w-full sm:w-auto"
