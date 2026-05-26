@@ -2,7 +2,6 @@
 
 // components/scan/CameraCapture.tsx
 // getUserMedia, live preview, capture frame → base64
-// FIX: Use useRef for stream so cleanup closure always has a live reference (was: useState → stale closure, stream never stopped)
 
 import { useEffect, useRef, useState } from 'react';
 import { Camera, XCircle } from 'lucide-react';
@@ -14,7 +13,6 @@ interface CameraCaptureProps {
 export function CameraCapture({ onCapture }: CameraCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  // FIX: ref instead of state — cleanup runs with the live value, not stale closure
   const streamRef = useRef<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
