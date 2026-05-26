@@ -4,10 +4,10 @@
 // UX: Select → Preview → Explicit "Analyze this menu" CTA → Upload
 // Prevents accidental analysis on slow connections; lets user confirm the right photo
 
-import { useCallback, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ImageUp, Upload, X, ZoomIn } from 'lucide-react';
 import { validateMenuImageFile } from '@/lib/scan/menu-image';
+import { useFileUploader } from '@/hooks/useFileUploader';
 
 interface MenuPhotoUploadProps {
   onUpload: (base64: string, mimeType: string) => void;
@@ -29,69 +29,19 @@ function formatBytes(bytes: number): string {
 }
 
 export function MenuPhotoUpload({ onUpload, isLoading }: MenuPhotoUploadProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
-
-  // Preview state — hold data until user explicitly clicks Analyze
-  const [preview, setPreview] = useState<{
-    objectUrl: string;
-    name: string;
-    size: number;
-    base64: string;
-    mimeType: string;
-  } | null>(null);
-
-  // Cleanup object URL on reset
-  const clearPreview = useCallback(() => {
-    if (preview?.objectUrl) URL.revokeObjectURL(preview.objectUrl);
-    setPreview(null);
-    setError(null);
-    if (inputRef.current) inputRef.current.value = '';
-  }, [preview]);
-
-  const handleFile = useCallback((file: File) => {
-    setError(null);
-
-    const validation = validateMenuImageFile(file);
-    if (!validation.ok) {
-      setError(validation.message);
-      return;
-    }
-
-    // Build object URL for instant preview (no base64 needed for display)
-    const objectUrl = URL.createObjectURL(file);
-
-    // Read base64 for API submission
-    const reader = new FileReader();
-    reader.onerror = () => setError('Could not read menu photo.');
-    reader.onload = () => {
-      try {
-        const dataUrl = String(reader.result);
-        const match = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-        if (!match?.[1] || !match[2]) throw new Error('Could not read menu photo.');
-
-        if (preview?.objectUrl) URL.revokeObjectURL(preview.objectUrl);
-        setPreview({
-          objectUrl,
-          name: file.name,
-          size: file.size,
-          mimeType: match[1],
-          base64: match[2],
-        });
-      } catch (err) {
-        setError((err as Error).message);
-      }
-    };
-    reader.readAsDataURL(file);
-  }, [preview]);
-
-  const handleDrop = useCallback((event: React.DragEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    setIsDragging(false);
-    const file = event.dataTransfer.files[0];
-    if (file) handleFile(file);
-  }, [handleFile]);
+  const {
+    inputRef,
+    error,
+    isDragging,
+    setIsDragging,
+    preview,
+    clearPreview,
+    handleFile,
+    handleDrop,
+  } = useFileUploader({
+    validateFile: validateMenuImageFile,
+    readErrorMessage: 'Could not read menu photo.',
+  });
 
   const handleAnalyze = () => {
     if (!preview || isLoading) return;
