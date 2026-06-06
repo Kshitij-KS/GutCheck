@@ -6,12 +6,44 @@ import { signIn, signOut, useSession } from 'next-auth/react';
 import { Cloud, CloudOff, Trash2, UploadCloud } from 'lucide-react';
 import { useGutCheckStore } from '@/store/gutcheck.store';
 import { formatDate } from '@/lib/utils';
+import { PreferencesFields } from '@/components/shared/PreferencesFields';
+import { useDriveSync } from '@/hooks/useDriveSync';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
+import { toast } from '@/store/ui.store';
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { isOnboarded, healthProfile, driveSync, clearAll } = useGutCheckStore();
+  const { isOnboarded, healthProfile, driveSync, lastSyncedAt, clearAll } = useGutCheckStore();
   const { data: session, status } = useSession();
+  const { pushToDrive, restoreFromDrive } = useDriveSync();
   const [cleanSlateStep, setCleanSlateStep] = useState<0 | 1 | 2>(0);
+  const [syncing, setSyncing] = useState(false);
+  const cleanSlateRef = useFocusTrap<HTMLDivElement>(cleanSlateStep > 0);
+
+  const handleBackup = async () => {
+    setSyncing(true);
+    try {
+      const ok = await pushToDrive();
+      if (ok) toast.success('Backed up to Google Drive');
+      else toast.error('Could not back up to Drive — your data is safe on this device.');
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const handleRestore = async () => {
+    setSyncing(true);
+    try {
+      const outcome = await restoreFromDrive();
+      if (outcome === 'restored') toast.success('Restored your profile from Drive');
+      else if (outcome === 'up-to-date') toast.info('Already up to date with Drive');
+      else if (outcome === 'local-newer') toast.info('Your device has the newest data — nothing to restore');
+      else if (outcome === 'no-remote') toast.info('No backup found on Drive yet');
+      else toast.error('Could not reach Drive — please try again.');
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   useEffect(() => {
     if (!isOnboarded) router.replace('/');
@@ -24,6 +56,7 @@ export default function ProfilePage() {
       fetch('/api/drive/wipe', { method: 'POST' }).catch(() => {});
     }
 
+    toast.success('All your data has been deleted from this device.');
     router.replace('/');
   };
 
@@ -55,6 +88,22 @@ export default function ProfilePage() {
           )}
           <InfoRow label="Last updated" value={formatDate(healthProfile.updatedAt)} />
         </div>
+      </div>
+
+      <div className="gc-card p-6">
+        <h2
+          className="text-lg mb-2"
+          style={{ fontFamily: 'var(--font-body)', color: 'var(--text-primary)', fontWeight: 600 }}
+        >
+          Preferences
+        </h2>
+        <p
+          className="text-sm mb-5 leading-relaxed"
+          style={{ fontFamily: 'var(--font-body)', color: 'var(--text-secondary)' }}
+        >
+          Location, dietary choices, and allergies tailor your menu scans, Chef&apos;s Card, and seasonal tips. Changes save automatically.
+        </p>
+        <PreferencesFields />
       </div>
 
       <div className="gc-card p-6">
@@ -97,13 +146,37 @@ export default function ProfilePage() {
                 </>
               )}
             </div>
-            <button
-              type="button"
-              onClick={() => void signOut()}
-              className="gc-btn-secondary text-sm"
-            >
-              Disconnect Google Drive
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => void handleBackup()}
+                disabled={syncing}
+                className="gc-btn-primary text-sm flex items-center gap-2 disabled:opacity-50"
+              >
+                <UploadCloud size={14} />
+                {syncing ? 'Working…' : 'Back up now'}
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleRestore()}
+                disabled={syncing}
+                className="gc-btn-secondary text-sm disabled:opacity-50"
+              >
+                Restore from Drive
+              </button>
+              <button
+                type="button"
+                onClick={() => void signOut()}
+                className="gc-btn-secondary text-sm"
+              >
+                Disconnect
+              </button>
+            </div>
+            {lastSyncedAt && (
+              <p className="text-xs" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-mono)' }}>
+                Last synced {formatDate(lastSyncedAt)}
+              </p>
+            )}
           </div>
         ) : (
           <button type="button" onClick={() => void signIn('google')} className="gc-btn-primary flex items-center gap-2">
@@ -168,8 +241,9 @@ export default function ProfilePage() {
           role="dialog"
           aria-modal="true"
           aria-labelledby="clean-slate-title"
+          onKeyDown={(e) => { if (e.key === 'Escape') setCleanSlateStep(0); }}
         >
-          <div className="gc-card w-full max-w-md p-6">
+          <div ref={cleanSlateRef} className="gc-card w-full max-w-md p-6">
             <p className="text-xs font-medium uppercase tracking-[0.16em]" style={{ color: 'var(--text-muted)' }}>
               Clean Slate
             </p>

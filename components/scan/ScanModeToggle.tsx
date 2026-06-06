@@ -8,6 +8,8 @@ import { Camera, ImageUp, MessageSquare, FileText } from 'lucide-react';
 interface ScanModeToggleProps {
   mode: ScanMode;
   onChange: (mode: ScanMode) => void;
+  /** Modes that are currently unavailable (e.g., camera/upload while offline). */
+  disabledModes?: ScanMode[];
 }
 
 const MODES: { id: ScanMode; label: string; icon: typeof Camera }[] = [
@@ -17,7 +19,7 @@ const MODES: { id: ScanMode; label: string; icon: typeof Camera }[] = [
   { id: 'menu-text', label: 'Paste Menu', icon: FileText },
 ];
 
-export function ScanModeToggle({ mode, onChange }: ScanModeToggleProps) {
+export function ScanModeToggle({ mode, onChange, disabledModes = [] }: ScanModeToggleProps) {
   return (
     <div
       className="flex flex-wrap w-full rounded-xl p-1 gap-1 sm:inline-flex sm:w-auto"
@@ -25,25 +27,32 @@ export function ScanModeToggle({ mode, onChange }: ScanModeToggleProps) {
       role="tablist"
       aria-label="Scan input mode"
     >
-      {MODES.map(({ id, label, icon: Icon }) => (
-        <button
-          key={id}
-          type="button"
-          role="tab"
-          aria-selected={mode === id}
-          onClick={() => onChange(id)}
-          className="flex flex-1 min-w-[min(100%,7rem)] sm:flex-initial items-center justify-center gap-2 min-h-11 px-3 sm:px-4 rounded-lg text-sm font-medium transition-all"
-          style={{
-            fontFamily: 'var(--font-body)',
-            backgroundColor: mode === id ? 'var(--bg-elevated)' : 'transparent',
-            color: mode === id ? 'var(--accent)' : 'var(--text-secondary)',
-            boxShadow: mode === id ? '0 1px 3px rgba(28,26,23,0.08)' : 'none',
-          }}
-        >
-          <Icon size={14} />
-          {label}
-        </button>
-      ))}
+      {MODES.map(({ id, label, icon: Icon }) => {
+        const isDisabled = disabledModes.includes(id);
+        return (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={mode === id}
+            aria-disabled={isDisabled}
+            disabled={isDisabled}
+            title={isDisabled ? 'Needs an internet connection' : undefined}
+            onClick={() => !isDisabled && onChange(id)}
+            className="flex flex-1 min-w-[min(100%,7rem)] sm:flex-initial items-center justify-center gap-2 min-h-11 px-3 sm:px-4 rounded-lg text-sm font-medium transition-all disabled:cursor-not-allowed"
+            style={{
+              fontFamily: 'var(--font-body)',
+              backgroundColor: mode === id ? 'var(--bg-elevated)' : 'transparent',
+              color: mode === id ? 'var(--accent)' : 'var(--text-secondary)',
+              boxShadow: mode === id ? '0 1px 3px rgba(28,26,23,0.08)' : 'none',
+              opacity: isDisabled ? 0.4 : 1,
+            }}
+          >
+            <Icon size={14} />
+            {label}
+          </button>
+        );
+      })}
     </div>
   );
 }

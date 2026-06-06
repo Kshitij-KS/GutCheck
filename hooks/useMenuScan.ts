@@ -3,13 +3,24 @@
 import { useState, useCallback } from 'react';
 import { useGutCheckStore } from '@/store/gutcheck.store';
 import { useOfflineDetection } from '@/hooks/useOfflineDetection';
-import { offlineQuickCheck } from '@/lib/offline/fallback-tree';
+import { offlineQuickCheck, withAllergyAvoids } from '@/lib/offline/fallback-tree';
 import { useScanRateLimit } from '@/hooks/useScanRateLimit';
+import { toast } from '@/store/ui.store';
 import type { MenuScanResult, DishScanResult } from '@/types';
+
+/** Reads a non-OK response (e.g. 429 rate limit) into a friendly message. */
+async function messageForBadResponse(res: Response, fallback: string): Promise<string> {
+  if (res.status === 429) {
+    const body = await res.json().catch(() => null) as { error?: string } | null;
+    return body?.error ?? 'You are scanning very fast — take a breath and try again in a moment.';
+  }
+  const body = await res.json().catch(() => null) as { error?: string } | null;
+  return body?.error ?? fallback;
+}
 
 type ScanState =
   | { status: 'idle' }
-  | { status: 'scanning' }
+  | { status: 'scanning'; discovered: number }
   | { status: 'complete'; result: MenuScanResult }
   | { status: 'error'; message: string };
 
@@ -18,7 +29,20 @@ export function useMenuScan() {
   const { isOnline } = useOfflineDetection();
   const { recordScan } = useScanRateLimit();
   const healthProfile = useGutCheckStore((s) => s.healthProfile);
-  const addScanResult = useGutCheckStore((s) => s.addScanResult);
+  const dietaryPreferences = useGutCheckStore((s) => s.dietaryPreferences);
+  const allergies = useGutCheckStore((s) => s.allergies);
+  // NOTE: results are NOT auto-saved to history here. The Scan page exposes an
+  // explicit "Save this analysis" action, which is the single path into history.
+  // Auto-saving here as well caused every scan to be stored twice.
+
+  const buildProfilePayload = useCallback(() => {
+    if (!healthProfile) return '{}';
+    return JSON.stringify({
+      ...healthProfile.consolidatedRules,
+      ...(dietaryPreferences.length ? { dietaryPreferences } : {}),
+      ...(allergies.length ? { allergies } : {}),
+    });
+  }, [healthProfile, dietaryPreferences, allergies]);
 
   const scanText = useCallback(async (menuText: string) => {
     if (!healthProfile) {
@@ -26,10 +50,10 @@ export function useMenuScan() {
       return;
     }
 
-    setScanState({ status: 'scanning' });
+    setScanState({ status: 'scanning', discovered: 0 });
 
     if (!isOnline) {
-      const tree = healthProfile.offlineFallbackTree;
+      const tree = withAllergyAvoids(healthProfile.offlineFallbackTree, allergies);
       const lines = menuText.split('\n').filter((l) => l.trim().length > 0);
       const bestChoices: string[] = [];
       const dishes: DishScanResult[] = lines.map((line) => {
@@ -56,7 +80,6 @@ export function useMenuScan() {
         timestamp: new Date().toISOString(),
       };
 
-      addScanResult(result);
       recordScan();
       setScanState({ status: 'complete', result });
       return;
@@ -68,22 +91,26 @@ export function useMenuScan() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           menuText,
-          profileJson: JSON.stringify(healthProfile.consolidatedRules),
+          profileJson: buildProfilePayload(),
         }),
       });
 
       if (!res.body) throw new Error('No response body');
+      if (!res.ok) throw new Error(await messageForBadResponse(res, 'Scan failed. Please try again.'));
 
-      const result = await consumeSSEStream<MenuScanResult>(res);
+      const result = await consumeSSEStream<MenuScanResult>(res, (count) =>
+        setScanState((cur) => (cur.status === 'scanning' ? { status: 'scanning', discovered: count } : cur))
+      );
       if (!result) throw new Error('No result returned');
 
-      addScanResult(result);
       recordScan();
       setScanState({ status: 'complete', result });
     } catch (err) {
-      setScanState({ status: 'error', message: (err as Error).message ?? 'Scan failed.' });
+      const message = (err as Error).message ?? 'Scan failed.';
+      setScanState({ status: 'error', message });
+      toast.error(message);
     }
-  }, [healthProfile, isOnline, addScanResult, recordScan]);
+  }, [healthProfile, isOnline, recordScan, buildProfilePayload, allergies]);
 
   const scanImage = useCallback(async (base64: string, mimeType: string) => {
     if (!healthProfile) {
@@ -96,7 +123,7 @@ export function useMenuScan() {
       return;
     }
 
-    setScanState({ status: 'scanning' });
+    setScanState({ status: 'scanning', discovered: 0 });
 
     try {
       const res = await fetch('/api/agents/scan-menu', {
@@ -105,20 +132,24 @@ export function useMenuScan() {
         body: JSON.stringify({
           base64,
           mimeType,
-          profileJson: JSON.stringify(healthProfile.consolidatedRules),
+          profileJson: buildProfilePayload(),
         }),
       });
 
-      const result = await consumeSSEStream<MenuScanResult>(res);
+      const result = await consumeSSEStream<MenuScanResult>(res, (count) =>
+        setScanState((cur) => (cur.status === 'scanning' ? { status: 'scanning', discovered: count } : cur))
+      );
+      if (!res.ok) throw new Error(await messageForBadResponse(res, 'Camera scan failed.'));
       if (!result) throw new Error('No result returned');
 
-      addScanResult(result);
       recordScan();
       setScanState({ status: 'complete', result });
     } catch (err) {
-      setScanState({ status: 'error', message: (err as Error).message ?? 'Camera scan failed.' });
+      const message = (err as Error).message ?? 'Camera scan failed.';
+      setScanState({ status: 'error', message });
+      toast.error(message);
     }
-  }, [healthProfile, isOnline, addScanResult, recordScan]);
+  }, [healthProfile, isOnline, recordScan, buildProfilePayload]);
 
   return {
     scanState,
@@ -129,13 +160,17 @@ export function useMenuScan() {
   };
 }
 
-async function consumeSSEStream<T>(res: Response): Promise<T | null> {
+async function consumeSSEStream<T>(
+  res: Response,
+  onCount?: (discovered: number) => void
+): Promise<T | null> {
   if (!res.body) return null;
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let result: T | null = null;
   let buffer = '';
+  let streamed = ''; // accumulated chunk text, for progress counting
 
   try {
     while (true) {
@@ -150,6 +185,12 @@ async function consumeSSEStream<T>(res: Response): Promise<T | null> {
         if (!line.startsWith('data: ')) continue;
         try {
           const payload = JSON.parse(line.slice(6)) as Record<string, unknown>;
+          if (typeof payload.chunk === 'string' && onCount) {
+            streamed += payload.chunk;
+            // Count dishes discovered so far (strict-JSON output → count keys).
+            const matches = streamed.match(/"dishName"\s*:/g);
+            if (matches) onCount(matches.length);
+          }
           if (payload.done && payload.result) result = payload.result as T;
           if (payload.error) throw new Error(payload.error as string);
         } catch {

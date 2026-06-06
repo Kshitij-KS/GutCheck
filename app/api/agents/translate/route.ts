@@ -24,6 +24,8 @@ const RequestSchema = z.object({
     .object({
       location: z.string().max(200).optional(),
       age: z.number().min(0).max(130).optional(),
+      dietaryPreferences: z.array(z.string().max(60)).max(20).optional(),
+      allergies: z.array(z.string().max(60)).max(30).optional(),
     })
     .optional(),
 });

@@ -15,9 +15,10 @@ export function getDriveClient(accessToken: string) {
   return google.drive({ version: 'v3', auth });
 }
 
+// Single-blob strategy: profile + history are stored together in one AppData
+// file. (A separate history file is intentionally not used.)
 export const DRIVE_FILES = {
   profile: 'gutcheck_profile.json',
-  history: 'gutcheck_history.json',
 } as const;
 
 export const DRIVE_SPACE = 'appDataFolder';

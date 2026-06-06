@@ -11,6 +11,7 @@ import { BookmarkCheck } from 'lucide-react';
 import { useGutCheckStore } from '@/store/gutcheck.store';
 import { useMenuScan } from '@/hooks/useMenuScan';
 import { useScanRateLimit } from '@/hooks/useScanRateLimit';
+import { toast } from '@/store/ui.store';
 import { ScanModeToggle } from '@/components/scan/ScanModeToggle';
 import { QuickQueryInput } from '@/components/scan/QuickQueryInput';
 import { CameraCapture } from '@/components/scan/CameraCapture';
@@ -18,6 +19,7 @@ import { MenuPhotoUpload } from '@/components/scan/MenuPhotoUpload';
 import { DishResultCard } from '@/components/scan/DishResultCard';
 import { OfflineScanBadge } from '@/components/scan/OfflineScanBadge';
 import { MindfulNudge } from '@/components/scan/MindfulNudge';
+import { RecentScans } from '@/components/scan/RecentScans';
 import { LoadingOrb } from '@/components/shared/LoadingOrb';
 import type { ScanMode } from '@/types';
 
@@ -41,6 +43,13 @@ export default function ScanPage() {
     if (isOverLimit) setShowNudge(true);
   }, [isOverLimit]);
 
+  // When offline, camera/upload are unavailable — auto-switch away from them.
+  useEffect(() => {
+    if (!isOnline && (mode === 'camera' || mode === 'menu-upload')) {
+      setMode('quick-query');
+    }
+  }, [isOnline, mode]);
+
   // Reset save badge when a new scan starts
   useEffect(() => {
     if (scanState.status === 'scanning') setSavedThisScan(false);
@@ -59,6 +68,7 @@ export default function ScanPage() {
     if (scanState.status !== 'complete') return;
     addScanResult(scanState.result);
     setSavedThisScan(true);
+    toast.success('Saved to history');
   };
 
   const hasOfflineDishes =
@@ -105,7 +115,11 @@ export default function ScanPage() {
 
       {/* Mode toggle */}
       <div>
-        <ScanModeToggle mode={mode} onChange={handleModeChange} />
+        <ScanModeToggle
+          mode={mode}
+          onChange={handleModeChange}
+          disabledModes={isOnline ? [] : ['camera', 'menu-upload']}
+        />
       </div>
 
       {/* ── Input modes ───────────────────────────────────────────────────────── */}
@@ -174,6 +188,14 @@ export default function ScanPage() {
                 'Almost there…',
               ]}
             />
+            {scanState.status === 'scanning' && scanState.discovered > 0 && (
+              <p
+                className="text-center text-sm -mt-4"
+                style={{ color: 'var(--tl-prioritize)', fontFamily: 'var(--font-body)' }}
+              >
+                Found {scanState.discovered} {scanState.discovered === 1 ? 'dish' : 'dishes'} so far…
+              </p>
+            )}
           </motion.div>
         )}
       </AnimatePresence>
@@ -204,6 +226,7 @@ export default function ScanPage() {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.3 }}
             className="space-y-4"
+            aria-live="polite"
           >
             {/* Offline results banner */}
             {hasOfflineDishes && <OfflineScanBadge variant="banner" />}
@@ -274,6 +297,9 @@ export default function ScanPage() {
           <MindfulNudge message={mindfulMessage} onDismiss={() => setShowNudge(false)} />
         )}
       </AnimatePresence>
+
+      {/* Saved scans */}
+      <RecentScans />
     </div>
   );
 }

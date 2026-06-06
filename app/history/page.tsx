@@ -36,7 +36,7 @@ export default function HistoryPage() {
     );
   }
 
-  const showSparklines = reportHistory.length >= 2 && healthProfile;
+  const showSparklines = reportHistory.length >= 1 && healthProfile;
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
@@ -69,6 +69,7 @@ export default function HistoryPage() {
                 markerName={marker.name}
                 markerId={marker.id}
                 history={reportHistory}
+                current={healthProfile}
               />
             ))}
           </div>

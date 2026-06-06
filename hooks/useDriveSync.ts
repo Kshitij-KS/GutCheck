@@ -19,8 +19,8 @@ export function useDriveSync() {
    * Push local data to Drive.
    * Caller should NOT await this — fire and forget.
    */
-  const pushToDrive = useCallback(async () => {
-    if (!isAuthenticated || !healthProfile) return;
+  const pushToDrive = useCallback(async (): Promise<boolean> => {
+    if (!isAuthenticated || !healthProfile) return false;
 
     setDriveSync('pending');
 
@@ -40,14 +40,16 @@ export function useDriveSync() {
       if (res.status === 401) {
         // Token expired — silent local cache, don't alarm user
         setDriveSync('error');
-        return;
+        return false;
       }
 
       if (!res.ok) throw new Error('Sync failed');
 
       setDriveSync('synced');
+      return true;
     } catch {
       setDriveSync('error');
+      return false;
     }
   }, [isAuthenticated, healthProfile, reportHistory, setDriveSync]);
 
@@ -71,6 +73,29 @@ export function useDriveSync() {
     }
   }, [isAuthenticated, setDriveSync]);
 
+  /**
+   * Explicitly pull from Drive and merge. Returns an outcome the UI can surface.
+   */
+  const restoreFromDrive = useCallback(async (): Promise<
+    'restored' | 'up-to-date' | 'local-newer' | 'no-remote' | 'error'
+  > => {
+    if (!isAuthenticated) return 'error';
+    try {
+      const res = await fetch('/api/drive/sync');
+      if (!res.ok) return 'error';
+
+      const driveData = (await res.json()) as DriveSyncPayload | null;
+      if (!driveData?.profile) return 'no-remote';
+
+      const outcome = useGutCheckStore.getState().mergeFromDrive(driveData);
+      setDriveSync('synced');
+      return outcome;
+    } catch {
+      setDriveSync('error');
+      return 'error';
+    }
+  }, [isAuthenticated, setDriveSync]);
+
   const initiateAuth = useCallback(() => {
     void signIn('google');
   }, []);
@@ -79,6 +104,7 @@ export function useDriveSync() {
     isAuthenticated,
     pushToDrive,
     pullFromDrive,
+    restoreFromDrive,
     initiateAuth,
   };
 }

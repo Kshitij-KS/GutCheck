@@ -73,6 +73,8 @@ export function buildGroceryScanUserPrompt(
 HEALTH PROFILE:
 ${profileJson}
 
+If the profile includes "allergies", classify any item containing those ingredients as AVOID regardless of other factors. If it includes "dietaryPreferences" (e.g., vegetarian, vegan, Jain), flag items that violate them.
+
 GROCERY LIST:
 ---
 ${groceryList}

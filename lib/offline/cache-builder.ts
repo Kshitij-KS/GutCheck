@@ -64,16 +64,18 @@ export function buildOfflineFallbackTree(profile: HealthProfile): OfflineFallbac
 
 function addTermsToSet(terms: string[], set: Set<string>): void {
   for (const term of terms) {
+    if (!term || !term.trim()) continue;
     // Extract individual keywords from multi-word phrases
     const keywords = extractKeywords(term);
     for (const kw of keywords) {
-      set.add(kw);
+      if (kw.length > 0) set.add(kw);
     }
   }
 }
 
 function extractKeywords(phrase: string): string[] {
   const lower = phrase.toLowerCase().trim();
+  if (lower.length === 0) return [];
   // Add the full phrase
   const results: string[] = [lower];
 

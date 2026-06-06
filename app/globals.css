@@ -20,7 +20,7 @@
   /* Typography */
   --text-primary:       #1C1A17;   /* Deep charcoal */
   --text-secondary:     #5C5752;   /* Warm gray */
-  --text-muted:         #9C9690;
+  --text-muted:         #726C65;   /* Muted warm gray — darkened for AA legibility */
 
   /* Traffic Lights — muted, organic (NEVER harsh red) */
   --tl-prioritize:      #3D7A5A;   /* Sage green */
@@ -45,10 +45,10 @@
   --border:             rgba(28, 26, 23, 0.10);
   --border-strong:      rgba(28, 26, 23, 0.20);
 
-  /* Fonts */
-  --font-display:       'Cormorant Garamond', Georgia, serif;
-  --font-body:          'DM Sans', system-ui, sans-serif;
-  --font-mono:          'DM Mono', 'Courier New', monospace;
+  /* NOTE: --font-display/body/mono are defined above via the Next.js font-loader
+     bridge (--font-cormorant / --font-dm-sans / --font-dm-mono). Do NOT redefine
+     them here with plain family names — that would override the optimized fonts
+     with system fallbacks. */
 }
 
 /* ─── Base ──────────────────────────────────────────────────────────────────── */

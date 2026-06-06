@@ -44,21 +44,49 @@ export function extractJson(raw: string): string {
 }
 
 /**
- * Logger utility for consistent error logging across the application
+ * Centralized logging seam. All logs funnel through `report()`, which writes to
+ * the console and (optionally) a server sink. NEVER pass health payloads here —
+ * log shapes, counts, codes, and messages only.
  */
-export const logger = {
-  error: (component: string, message: string, error?: unknown) => {
-    console.error(`[${component}] ${message}`, error ?? '');
-  },
-  warn: (component: string, message: string) => {
-    console.warn(`[${component}] ${message}`);
-  },
-  info: (component: string, message: string) => {
-    console.info(`[${component}] ${message}`);
-  },
-  debug: (component: string, message: string) => {
-    if (process.env.NODE_ENV === 'development') {
-      console.debug(`[${component}] ${message}`);
+type LogLevel = 'error' | 'warn' | 'info' | 'debug';
+
+function report(level: LogLevel, component: string, message: string, meta?: unknown): void {
+  const tag = `[${component}] ${message}`;
+  if (level === 'debug' && process.env.NODE_ENV !== 'development') return;
+
+  // Console sink (always)
+  if (level === 'error') console.error(tag, meta ?? '');
+  else if (level === 'warn') console.warn(tag);
+  else if (level === 'info') console.info(tag);
+  else console.debug(tag);
+
+  // Optional server sink (no-op unless configured). Best-effort, never throws.
+  const sink = process.env.LOG_SINK_URL;
+  if (sink && typeof fetch === 'function' && level !== 'debug') {
+    try {
+      void fetch(sink, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ level, component, message, at: new Date().toISOString() }),
+        keepalive: true,
+      }).catch(() => {});
+    } catch {
+      // never let logging break a request
     }
   }
+}
+
+export const logger = {
+  error: (component: string, message: string, error?: unknown) => report('error', component, message, error),
+  warn: (component: string, message: string) => report('warn', component, message),
+  info: (component: string, message: string) => report('info', component, message),
+  debug: (component: string, message: string) => report('debug', component, message),
 };
+
+/**
+ * Standardized API-route error log. `code` is a short stable tag (e.g.
+ * 'parse_error', 'rate_limited', 'drive_load_failed') for observability/metrics.
+ */
+export function logRouteError(component: string, code: string, error?: unknown): void {
+  report('error', component, `route_error code=${code}`, error);
+}

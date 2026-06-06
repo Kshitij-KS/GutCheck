@@ -183,6 +183,8 @@ export interface GutCheckStore {
   isOnboarded: boolean;
   reportHistory: ReportHistoryEntry[];
   location?: string;
+  dietaryPreferences: string[];
+  allergies: string[];
 
   // Drive Sync
   driveSync: DriveSync;
@@ -199,20 +201,31 @@ export interface GutCheckStore {
   // Actions
   setHealthProfile: (profile: HealthProfile) => void;
   setLocation: (location: string) => void;
+  setDietaryPreferences: (prefs: string[]) => void;
+  setAllergies: (allergies: string[]) => void;
   /** Merge Drive backup into local state: newer profile wins; histories union by id, newest first, capped. */
-  mergeFromDrive: (payload: DriveSyncPayload) => void;
+  mergeFromDrive: (payload: DriveSyncPayload) => DriveMergeOutcome;
+  /** Restore the most recent previous profile from history (used by replace-flow Undo). */
+  restorePreviousProfile: () => boolean;
   addScanResult: (result: MenuScanResult) => void;
   addGroceryResult: (result: GroceryAuditResult) => void;
+  removeScanResult: (timestamp: string) => void;
+  clearScanHistory: () => void;
+  removeGroceryResult: (timestamp: string) => void;
+  clearGroceryHistory: () => void;
   incrementScanCount: () => void;
   setDriveSync: (status: DriveSync) => void;
   clearAll: () => void;
 }
+
+export type DriveMergeOutcome = 'restored' | 'up-to-date' | 'local-newer' | 'no-remote';
 
 // ─── User Context ─────────────────────────────────────────────────────────────
 
 export interface UserContext {
   location?: string;
   dietaryPreferences?: string[];
+  allergies?: string[];
   age?: number;
 }
 

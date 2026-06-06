@@ -7,6 +7,7 @@ import { Navbar } from './Navbar';
 import { OfflineBanner } from './OfflineBanner';
 import { PageTransition } from './PageTransition';
 import { PwaRegister } from './PwaRegister';
+import { ToastViewport } from '@/components/shared/Toast';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
@@ -22,6 +23,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           {children}
         </main>
       </PageTransition>
+      <ToastViewport />
     </SessionProvider>
   );
 }

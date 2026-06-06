@@ -18,13 +18,13 @@ export function GroceryAuditResults({ result }: GroceryAuditResultsProps) {
       transition={{ duration: 0.4, ease: 'easeOut' }}
       className="space-y-6"
     >
-      {/* Overall guidance */}
+      {/* Overall guidance (falls back to summary — offline audits only set summary) */}
       <div className="gc-card p-5">
         <p
           className="text-sm leading-relaxed"
           style={{ fontFamily: 'var(--font-body)', color: 'var(--text-secondary)' }}
         >
-          {result.overallGuidance}
+          {result.overallGuidance || result.summary}
         </p>
       </div>
 

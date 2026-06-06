@@ -51,7 +51,12 @@ export function runDeterministicGuardrail(markers: BloodMarker[]): GuardrailResu
     if (!thresholdKey) continue;
 
     const threshold = CRITICAL_THRESHOLDS[thresholdKey];
+    // Defensive: if the id-map and thresholds table ever drift, skip rather than
+    // throwing on `'max' in undefined`, which would crash the whole pipeline.
+    if (!threshold) continue;
     const value = marker.numericValue;
+
+    if (!Number.isFinite(value)) continue;
 
     if ('max' in threshold && threshold.max !== undefined && value > threshold.max) {
       criticalMarkers.push({

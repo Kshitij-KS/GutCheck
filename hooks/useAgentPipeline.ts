@@ -3,9 +3,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { runDeterministicGuardrail } from '@/lib/guardrail/thresholds';
 import { parseExtractedMarkers } from '@/lib/parsers/extract.parser';
+import { useGutCheckStore } from '@/store/gutcheck.store';
 import type { BloodMarker, GuardrailResult, HealthProfile } from '@/types';
 
 type UnitClarification = 'ng/mL' | 'nmol/L';
+
+/** Build the optional user-context payload from current store state. */
+function buildUserContext() {
+  const { location, dietaryPreferences, allergies } = useGutCheckStore.getState();
+  const ctx: {
+    location?: string;
+    dietaryPreferences?: string[];
+    allergies?: string[];
+  } = {};
+  if (location && location.trim()) ctx.location = location.trim();
+  if (dietaryPreferences?.length) ctx.dietaryPreferences = dietaryPreferences;
+  if (allergies?.length) ctx.allergies = allergies;
+  return ctx;
+}
 
 type PipelineState =
   | { stage: 'idle' }
@@ -21,6 +36,7 @@ type PipelineState =
       labName: string | null;
     }
   | { stage: 'translating'; streamedText: string }
+  | { stage: 'retrying'; attempt: number; of: number }
   | { stage: 'complete'; profile: HealthProfile }
   | { stage: 'error'; message: string; stageFailed: string; canRetry: boolean };
 
@@ -85,12 +101,7 @@ export function useAgentPipeline() {
       if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
 
       if (attempt > 0) {
-        setState({
-          stage: 'error',
-          message: `Retrying... (attempt ${attempt + 1} of ${MAX_RETRIES + 1})`,
-          stageFailed: 'translate',
-          canRetry: false,
-        });
+        setState({ stage: 'retrying', attempt: attempt + 1, of: MAX_RETRIES + 1 });
         await new Promise((resolve) => setTimeout(resolve, RETRY_DELAYS_MS[attempt - 1] ?? 5000));
         if (signal.aborted) throw new DOMException('Aborted', 'AbortError');
         setState({ stage: 'translating', streamedText: '' });
@@ -147,6 +158,7 @@ export function useAgentPipeline() {
           body: JSON.stringify({
             markersJson: JSON.stringify(markers),
             reportText: reportText.slice(0, 500),
+            userContext: buildUserContext(),
           }),
           signal: tc.signal,
         });

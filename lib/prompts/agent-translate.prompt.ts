@@ -107,8 +107,15 @@ Return the complete HealthProfile schema:
 export function buildTranslateUserPrompt(
   markersJson: string,
   reportText: string,
-  userContext?: { location?: string; age?: number }
+  userContext?: { location?: string; age?: number; dietaryPreferences?: string[]; allergies?: string[] }
 ): string {
+  const diet = userContext?.dietaryPreferences?.length
+    ? `USER DIETARY PREFERENCES (respect strictly): ${userContext.dietaryPreferences.join(', ')}`
+    : '';
+  const allergies = userContext?.allergies?.length
+    ? `USER ALLERGIES (absolute — always strictAvoid, and note clearly on the Chef's Card): ${userContext.allergies.join(', ')}`
+    : '';
+
   return `Translate these extracted blood markers into a complete HealthProfile with holistic wellness guidance.
 
 EXTRACTED MARKERS:
@@ -119,6 +126,8 @@ ${reportText.slice(0, 500)}
 
 ${userContext?.location ? `USER LOCATION: ${userContext.location}` : ''}
 ${userContext?.age ? `USER AGE: ${userContext.age}` : ''}
+${diet}
+${allergies}
 
 Apply your full clinical nutritionist knowledge. Be India-aware. Be warm and additive. Return the complete HealthProfile JSON.`;
 }

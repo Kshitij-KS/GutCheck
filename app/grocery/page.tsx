@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useGutCheckStore } from '@/store/gutcheck.store';
 import { useGroceryScan } from '@/hooks/useGroceryScan';
 import { GroceryAuditResults } from '@/components/grocery/GroceryAuditResults';
+import { RecentAudits } from '@/components/grocery/RecentAudits';
 import { LoadingOrb } from '@/components/shared/LoadingOrb';
 
 export default function GroceryPage() {
@@ -78,6 +79,14 @@ Daawat basmati rice`;
       {state.status === 'scanning' && (
         <div className="mt-8">
           <LoadingOrb messages={['Reading your grocery list...', 'Checking brand ingredients...', 'Finding better alternatives...']} />
+          {state.discovered > 0 && (
+            <p
+              className="text-center text-sm -mt-4"
+              style={{ color: 'var(--tl-prioritize)', fontFamily: 'var(--font-body)' }}
+            >
+              Checked {state.discovered} {state.discovered === 1 ? 'item' : 'items'} so far…
+            </p>
+          )}
         </div>
       )}
 
@@ -92,13 +101,16 @@ Daawat basmati rice`;
 
       {/* Results */}
       {state.status === 'complete' && (
-        <div className="space-y-6">
+        <div className="space-y-6" aria-live="polite">
           <GroceryAuditResults result={state.result} />
           <button onClick={reset} className="gc-btn-secondary w-full">
             Audit another list
           </button>
         </div>
       )}
+
+      {/* Saved audits (hidden on the results screen to keep it focused) */}
+      {state.status !== 'complete' && <RecentAudits />}
     </div>
   );
 }

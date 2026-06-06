@@ -6,6 +6,10 @@
 
 import { create } from 'zustand';
 import { persist, createJSONStorage, devtools } from 'zustand/middleware';
+import {
+  computeMarkerDeltas,
+  mergeReportHistories,
+} from '@/lib/history';
 import type {
   GutCheckStore,
   HealthProfile,
@@ -13,87 +17,10 @@ import type {
   MenuScanResult,
   GroceryAuditResult,
   DriveSync,
-  BloodMarker,
-  MarkerDelta,
-  MarkerStatus,
   DriveSyncPayload,
 } from '@/types';
 
-const STORE_VERSION = 1;
-
-function computeTrend(prev: BloodMarker, curr: BloodMarker): 'IMPROVING' | 'WORSENING' | 'STABLE' {
-  // LOW / CRITICALLY_LOW are deficiency markers (different axis from ELEVATED/CRITICAL).
-  // Use two separate orderings so that status-level comparison is always meaningful.
-  const isLowType = curr.status === 'LOW' || curr.status === 'CRITICALLY_LOW'
-    || prev.status === 'LOW' || prev.status === 'CRITICALLY_LOW';
-
-  // For HIGH markers (too much of something): lower status index = better
-  const highOrder: MarkerStatus[] = ['OPTIMAL', 'BORDERLINE', 'ELEVATED', 'CRITICAL'];
-  // For LOW markers (too little of something): closer to OPTIMAL = better
-  const lowOrder: MarkerStatus[] = ['OPTIMAL', 'BORDERLINE', 'LOW', 'CRITICALLY_LOW'];
-
-  const order = isLowType ? lowOrder : highOrder;
-  const prevIdx = order.indexOf(prev.status);
-  const currIdx = order.indexOf(curr.status);
-
-  // Status improved or worsened
-  if (prevIdx !== -1 && currIdx !== -1) {
-    if (currIdx < prevIdx) return 'IMPROVING';
-    if (currIdx > prevIdx) return 'WORSENING';
-  }
-
-  // Same status level — check numeric direction
-  if (isLowType) {
-    // For deficiency markers: higher value = improving (e.g., hemoglobin rising)
-    if (curr.numericValue > prev.numericValue * 1.05) return 'IMPROVING';
-    if (curr.numericValue < prev.numericValue * 0.95) return 'WORSENING';
-  } else {
-    // For excess markers: lower value = improving (e.g., LDL falling)
-    if (curr.numericValue < prev.numericValue * 0.95) return 'IMPROVING';
-    if (curr.numericValue > prev.numericValue * 1.05) return 'WORSENING';
-  }
-
-  return 'STABLE';
-}
-
-const MAX_REPORT_HISTORY = 50;
-
-function mergeReportHistories(
-  local: ReportHistoryEntry[],
-  remote: ReportHistoryEntry[]
-): ReportHistoryEntry[] {
-  const byId = new Map<string, ReportHistoryEntry>();
-  for (const e of [...local, ...remote]) {
-    const existing = byId.get(e.id);
-    if (!existing || e.uploadedAt > existing.uploadedAt) {
-      byId.set(e.id, e);
-    }
-  }
-  return [...byId.values()]
-    .sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt))
-    .slice(0, MAX_REPORT_HISTORY);
-}
-
-function computeMarkerDeltas(
-  previous: BloodMarker[],
-  current: BloodMarker[]
-): MarkerDelta[] {
-  return current
-    .map((curr) => {
-      const prev = previous.find((p) => p.id === curr.id);
-      if (!prev) return null;
-      return {
-        markerId: curr.id,
-        markerName: curr.name,
-        previousValue: prev.numericValue,
-        currentValue: curr.numericValue,
-        previousStatus: prev.status,
-        currentStatus: curr.status,
-        trend: computeTrend(prev, curr),
-      } satisfies MarkerDelta;
-    })
-    .filter((d): d is MarkerDelta => d !== null);
-}
+const STORE_VERSION = 2;
 
 export const useGutCheckStore = create<GutCheckStore>()(
   devtools(
@@ -104,6 +31,8 @@ export const useGutCheckStore = create<GutCheckStore>()(
         isOnboarded: false,
         reportHistory: [],
         location: undefined,
+        dietaryPreferences: [],
+        allergies: [],
         driveSync: 'offline',
         lastSyncedAt: null,
         scanHistory: [],
@@ -131,12 +60,16 @@ export const useGutCheckStore = create<GutCheckStore>()(
 
         setLocation: (location: string) => set({ location }),
 
+        setDietaryPreferences: (prefs: string[]) => set({ dietaryPreferences: prefs }),
+
+        setAllergies: (allergies: string[]) => set({ allergies }),
+
         mergeFromDrive: (payload: DriveSyncPayload) => {
           const { healthProfile: localProfile, reportHistory: localHistory } = get();
           const driveProfile = payload.profile;
           const driveHistory = payload.history ?? [];
 
-          if (!driveProfile) return;
+          if (!driveProfile) return 'no-remote';
 
           const mergedHistory = mergeReportHistories(localHistory, driveHistory);
           const localUpdated = localProfile?.updatedAt ?? '';
@@ -149,9 +82,23 @@ export const useGutCheckStore = create<GutCheckStore>()(
               reportHistory: mergedHistory,
               lastSyncedAt: payload.syncedAt,
             });
-          } else {
-            set({ reportHistory: mergedHistory, lastSyncedAt: payload.syncedAt });
+            return 'restored';
           }
+
+          set({ reportHistory: mergedHistory, lastSyncedAt: payload.syncedAt });
+          return driveUpdated === localUpdated ? 'up-to-date' : 'local-newer';
+        },
+
+        restorePreviousProfile: () => {
+          const { reportHistory } = get();
+          const latest = reportHistory[0];
+          if (!latest) return false;
+          set({
+            healthProfile: latest.profileSnapshot,
+            isOnboarded: true,
+            reportHistory: reportHistory.slice(1),
+          });
+          return true;
         },
 
         addScanResult: (result: MenuScanResult) =>
@@ -160,8 +107,21 @@ export const useGutCheckStore = create<GutCheckStore>()(
         addGroceryResult: (result: GroceryAuditResult) =>
           set((s) => ({ groceryHistory: [result, ...s.groceryHistory].slice(0, 20) })),
 
+        removeScanResult: (timestamp: string) =>
+          set((s) => ({ scanHistory: s.scanHistory.filter((r) => r.timestamp !== timestamp) })),
+
+        clearScanHistory: () => set({ scanHistory: [] }),
+
+        removeGroceryResult: (timestamp: string) =>
+          set((s) => ({ groceryHistory: s.groceryHistory.filter((r) => r.timestamp !== timestamp) })),
+
+        clearGroceryHistory: () => set({ groceryHistory: [] }),
+
         incrementScanCount: () => {
-          const todayStr = new Date().toISOString().split('T')[0];
+          const now = new Date();
+          // Use the LOCAL calendar date, not UTC — otherwise the daily counter
+          // rolls over at UTC midnight instead of the user's midnight.
+          const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
           const { lastScanDate, scanCountToday } = get();
           if (lastScanDate !== todayStr) {
             set({ scanCountToday: 1, lastScanDate: todayStr });
@@ -178,6 +138,8 @@ export const useGutCheckStore = create<GutCheckStore>()(
             isOnboarded: false,
             reportHistory: [],
             location: undefined,
+            dietaryPreferences: [],
+            allergies: [],
             driveSync: 'offline',
             lastSyncedAt: null,
             scanHistory: [],
@@ -191,9 +153,17 @@ export const useGutCheckStore = create<GutCheckStore>()(
         storage: createJSONStorage(() => localStorage),
         version: STORE_VERSION,
         migrate: (persisted, _version) => {
-          // Handle schema migrations here as STORE_VERSION increments
-          // v1 → v1: no migration needed
-          return persisted as GutCheckStore;
+          // Defensive, idempotent migration. Backfill fields added in v2 so that
+          // stores persisted under v1 load without runtime errors.
+          const s = (persisted ?? {}) as Partial<GutCheckStore>;
+          return {
+            ...s,
+            reportHistory: s.reportHistory ?? [],
+            scanHistory: s.scanHistory ?? [],
+            groceryHistory: s.groceryHistory ?? [],
+            dietaryPreferences: s.dietaryPreferences ?? [],
+            allergies: s.allergies ?? [],
+          } as GutCheckStore;
         },
       }
     ),

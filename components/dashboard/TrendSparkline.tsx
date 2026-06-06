@@ -7,46 +7,45 @@
 import {
   LineChart, Line, ResponsiveContainer, Tooltip, XAxis,
 } from 'recharts';
-import type { ReportHistoryEntry } from '@/types';
+import type { HealthProfile, ReportHistoryEntry } from '@/types';
 import { formatDate } from '@/lib/utils';
 
 interface TrendSparklineProps {
   markerName: string;
   markerId: string;
   history: ReportHistoryEntry[];
+  /**
+   * The current (latest) profile. Its value is appended as the newest point.
+   * Report history only stores PREVIOUS snapshots, so without this the chart
+   * would always be missing the most recent report.
+   */
+  current?: HealthProfile | null;
 }
 
-export function TrendSparkline({ markerName, markerId, history }: TrendSparklineProps) {
-  if (history.length < 2) return null;
-
-  // Build data points from history
+export function TrendSparkline({ markerName, markerId, history, current }: TrendSparklineProps) {
+  // Build chronological data points (oldest → newest) from history snapshots.
   const data: { date: string; value: number }[] = [];
-  let cachedIndex = -1;
 
   for (let i = history.length - 1; i >= 0; i--) {
     const entry = history[i];
     if (!entry) continue;
 
-    const markers = entry.profileSnapshot.markers;
-    let marker = undefined;
-
-    // Fast path: Check if the marker is at the same index as the previous entry
-    if (cachedIndex >= 0 && cachedIndex < markers.length && markers[cachedIndex]?.id === markerId) {
-      marker = markers[cachedIndex];
-    } else {
-      // Fallback: Find the marker index and update cache
-      cachedIndex = markers.findIndex((m) => m.id === markerId);
-      if (cachedIndex !== -1) {
-        marker = markers[cachedIndex];
-      }
-    }
-
+    const marker = entry.profileSnapshot.markers.find((m) => m.id === markerId);
     if (marker?.numericValue != null) {
       data.push({
         date: formatDate(entry.uploadedAt),
         value: marker.numericValue,
       });
     }
+  }
+
+  // Append the current profile as the newest point — it is not part of history.
+  const currentMarker = current?.markers.find((m) => m.id === markerId);
+  if (currentMarker?.numericValue != null) {
+    data.push({
+      date: formatDate(current!.updatedAt),
+      value: currentMarker.numericValue,
+    });
   }
 
   if (data.length < 2) return null;

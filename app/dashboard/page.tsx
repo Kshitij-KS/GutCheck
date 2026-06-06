@@ -15,7 +15,7 @@ import { TrendSparkline } from '@/components/dashboard/TrendSparkline';
 
 export default function DashboardPage() {
   const router = useRouter();
-  const { isOnboarded, healthProfile, reportHistory } = useGutCheckStore();
+  const { isOnboarded, healthProfile, reportHistory, location } = useGutCheckStore();
 
   useEffect(() => {
     if (!isOnboarded) router.replace('/');
@@ -23,8 +23,10 @@ export default function DashboardPage() {
 
   if (!healthProfile) return null;
 
-  // Only show sparklines when the user has uploaded at least 2 reports
-  const showSparklines = reportHistory.length >= 2;
+  // Report history stores only PREVIOUS reports; the current one lives in
+  // healthProfile. So "2 reports uploaded" means history.length >= 1.
+  const showSparklines = reportHistory.length >= 1;
+  const totalReports = reportHistory.length + 1;
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-8 space-y-8">
@@ -36,8 +38,8 @@ export default function DashboardPage() {
       {/* Tips row */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <DailyNudge consolidatedRules={healthProfile.consolidatedRules} />
-        {/* Pass 'India' default — SeasonalTip defaults to 'India' internally so this is explicit */}
-        <SeasonalTip profile={healthProfile} location="India" />
+        {/* Uses the user's saved location when set; SeasonalTip falls back to 'India'. */}
+        <SeasonalTip profile={healthProfile} location={location && location.trim() ? location : 'India'} />
       </div>
 
       {/* Quick action cards */}
@@ -72,7 +74,7 @@ export default function DashboardPage() {
             className="text-sm mb-5"
             style={{ fontFamily: 'var(--font-body)', color: 'var(--text-muted)' }}
           >
-            Based on {reportHistory.length} uploaded reports
+            Based on {totalReports} uploaded reports
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {healthProfile.markers.slice(0, 6).map((marker) => (
@@ -87,6 +89,7 @@ export default function DashboardPage() {
                   markerName={marker.name}
                   markerId={marker.id}
                   history={reportHistory}
+                  current={healthProfile}
                 />
               </div>
             ))}

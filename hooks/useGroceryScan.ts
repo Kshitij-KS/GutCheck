@@ -3,12 +3,21 @@
 import { useState, useCallback } from "react";
 import { useGutCheckStore } from "@/store/gutcheck.store";
 import { useOfflineDetection } from "@/hooks/useOfflineDetection";
-import { offlineQuickCheck } from "@/lib/offline/fallback-tree";
+import { offlineQuickCheck, withAllergyAvoids } from "@/lib/offline/fallback-tree";
+import { toast } from "@/store/ui.store";
 import type { GroceryAuditResult, GroceryItem } from "@/types";
+
+async function messageForBadResponse(res: Response, fallback: string): Promise<string> {
+  const body = (await res.json().catch(() => null)) as { error?: string } | null;
+  if (res.status === 429) {
+    return body?.error ?? "You are auditing very fast — please wait a moment and try again.";
+  }
+  return body?.error ?? fallback;
+}
 
 type GroceryState =
   | { status: "idle" }
-  | { status: "scanning" }
+  | { status: "scanning"; discovered: number }
   | { status: "complete"; result: GroceryAuditResult }
   | { status: "error"; message: string };
 
@@ -16,6 +25,8 @@ export function useGroceryScan() {
   const [state, setState] = useState<GroceryState>({ status: "idle" });
   const healthProfile = useGutCheckStore((s) => s.healthProfile);
   const addGroceryResult = useGutCheckStore((s) => s.addGroceryResult);
+  const dietaryPreferences = useGutCheckStore((s) => s.dietaryPreferences);
+  const allergies = useGutCheckStore((s) => s.allergies);
   const { isOnline } = useOfflineDetection();
 
   const audit = useCallback(
@@ -28,10 +39,10 @@ export function useGroceryScan() {
         return;
       }
 
-      setState({ status: "scanning" });
+      setState({ status: "scanning", discovered: 0 });
 
       if (!isOnline) {
-        const tree = healthProfile.offlineFallbackTree;
+        const tree = withAllergyAvoids(healthProfile.offlineFallbackTree, allergies);
         const lines = groceryList
           .split("\n")
           .filter((l) => l.trim().length > 0);
@@ -84,37 +95,47 @@ export function useGroceryScan() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             groceryList,
-            profileJson: JSON.stringify(healthProfile.consolidatedRules),
+            profileJson: JSON.stringify({
+              ...healthProfile.consolidatedRules,
+              ...(dietaryPreferences.length ? { dietaryPreferences } : {}),
+              ...(allergies.length ? { allergies } : {}),
+            }),
           }),
         });
 
         if (!res.body) throw new Error("No response body");
-        const result = await consumeSSEStream<GroceryAuditResult>(res);
+        if (!res.ok) throw new Error(await messageForBadResponse(res, "Audit failed. Please try again."));
+        const result = await consumeSSEStream<GroceryAuditResult>(res, (count) =>
+          setState((cur) => (cur.status === "scanning" ? { status: "scanning", discovered: count } : cur)),
+        );
 
         if (!result) throw new Error("No result returned");
 
         addGroceryResult(result);
         setState({ status: "complete", result });
       } catch (err) {
-        setState({
-          status: "error",
-          message: (err as Error).message ?? "Audit failed.",
-        });
+        const message = (err as Error).message ?? "Audit failed.";
+        setState({ status: "error", message });
+        toast.error(message);
       }
     },
-    [healthProfile, isOnline, addGroceryResult],
+    [healthProfile, isOnline, addGroceryResult, dietaryPreferences, allergies],
   );
 
   return { state, audit, reset: () => setState({ status: "idle" }) };
 }
 
-async function consumeSSEStream<T>(res: Response): Promise<T | null> {
+async function consumeSSEStream<T>(
+  res: Response,
+  onCount?: (discovered: number) => void,
+): Promise<T | null> {
   if (!res.body) return null;
 
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
   let result: T | null = null;
   let buffer = "";
+  let streamed = "";
 
   try {
     while (true) {
@@ -129,6 +150,11 @@ async function consumeSSEStream<T>(res: Response): Promise<T | null> {
         if (!line.startsWith("data: ")) continue;
         try {
           const payload = JSON.parse(line.slice(6)) as Record<string, unknown>;
+          if (typeof payload.chunk === "string" && onCount) {
+            streamed += payload.chunk;
+            const matches = streamed.match(/"name"\s*:/g);
+            if (matches) onCount(matches.length);
+          }
           if (payload.done && payload.result) result = payload.result as T;
           if (payload.error) throw new Error(payload.error as string);
         } catch {

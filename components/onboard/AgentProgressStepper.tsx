@@ -14,9 +14,11 @@ interface Step {
 interface AgentProgressStepperProps {
   stage: string;
   streamedText?: string;
+  /** Optional note shown on the active step (e.g. retry progress). */
+  note?: string;
 }
 
-export function AgentProgressStepper({ stage, streamedText }: AgentProgressStepperProps) {
+export function AgentProgressStepper({ stage, streamedText, note }: AgentProgressStepperProps) {
   const steps: Step[] = [
     {
       label: 'Reading your report',
@@ -102,7 +104,11 @@ export function AgentProgressStepper({ stage, streamedText }: AgentProgressStepp
               {/* Streaming text for translation step */}
               {step.status === 'active' && i === 2 && (
                 <div className="mt-2">
-                  {streamedText && streamedText.length > 0 ? (
+                  {note ? (
+                    <p className="text-xs" style={{ color: 'var(--tl-moderate)', fontFamily: 'var(--font-body)' }}>
+                      {note}
+                    </p>
+                  ) : streamedText && streamedText.length > 0 ? (
                     <p
                       className="text-xs max-h-32 overflow-y-auto leading-relaxed rounded-lg p-2"
                       style={{

@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 import { useEffect, useRef, useState } from 'react';
 import { Menu, X } from 'lucide-react';
 import { useGutCheckStore } from '@/store/gutcheck.store';
+import { useFocusTrap } from '@/hooks/useFocusTrap';
 import { motion, AnimatePresence } from 'framer-motion';
 
 const NAV_LINKS = [
@@ -23,6 +24,7 @@ export function Navbar() {
   const isOnboarded = useGutCheckStore((s) => s.isOnboarded);
   const [mobileOpen, setMobileOpen] = useState(false);
   const closeBtnRef = useRef<HTMLButtonElement>(null);
+  const drawerRef = useFocusTrap<HTMLElement>(mobileOpen);
 
   useEffect(() => {
     if (mobileOpen) {
@@ -120,6 +122,7 @@ export function Navbar() {
             />
             <motion.aside
               id="gc-mobile-nav"
+              ref={drawerRef}
               role="dialog"
               aria-modal="true"
               aria-label="Main navigation"

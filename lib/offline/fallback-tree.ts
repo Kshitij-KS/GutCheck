@@ -5,6 +5,32 @@
 import type { DishScanResult, OfflineFallbackTree, TrafficLight } from '@/types';
 
 /**
+ * Merge user allergy terms into a fallback tree's avoid keywords. Allergies are
+ * absolute avoids and may be set/changed after the profile (and its baked-in
+ * tree) was built, so this is applied at check time.
+ */
+export function withAllergyAvoids(
+  tree: OfflineFallbackTree,
+  allergies: string[]
+): OfflineFallbackTree {
+  if (!allergies.length) return tree;
+  const extra = allergies.flatMap((a) => {
+    const words = a
+      .toLowerCase()
+      .split(/[^a-z0-9]+/)
+      .filter((w) => w.length > 2);
+    const out: string[] = [];
+    for (const w of words) {
+      out.push(w);
+      // Add a depluralized form so "Peanuts" also matches "peanut".
+      if (w.length > 3 && w.endsWith('s')) out.push(w.slice(0, -1));
+    }
+    return out;
+  });
+  return { ...tree, avoidKeywords: [...tree.avoidKeywords, ...extra] };
+}
+
+/**
  * Offline quick-check for a single dish name using keyword matching.
  * Returns a simplified DishScanResult with isOfflineResult: true.
  * No API call is made.
@@ -15,15 +41,22 @@ export function offlineQuickCheck(
 ): Pick<DishScanResult, 'classification' | 'primaryReason' | 'isOfflineResult'> {
   const lower = dishName.toLowerCase().trim();
 
-  const hasAvoid = tree.avoidKeywords.some(
-    (kw) => lower.includes(kw) || kw.includes(lower)
-  );
-  const hasModerate = tree.moderateKeywords.some(
-    (kw) => lower.includes(kw) || kw.includes(lower)
-  );
-  const hasPrioritize = tree.prioritizeKeywords.some(
-    (kw) => lower.includes(kw) || kw.includes(lower)
-  );
+  // An empty dish line can't be assessed; treat as uncertain rather than matching
+  // every keyword (an empty keyword would otherwise match via includes('')).
+  if (lower.length === 0) {
+    return {
+      classification: 'MODERATE',
+      primaryReason: 'Unable to fully assess offline — proceed mindfully and check when connected',
+      isOfflineResult: true,
+    };
+  }
+
+  const matches = (kw: string) =>
+    kw.length > 0 && (lower.includes(kw) || kw.includes(lower));
+
+  const hasAvoid = tree.avoidKeywords.some(matches);
+  const hasModerate = tree.moderateKeywords.some(matches);
+  const hasPrioritize = tree.prioritizeKeywords.some(matches);
 
   if (hasAvoid) {
     return {

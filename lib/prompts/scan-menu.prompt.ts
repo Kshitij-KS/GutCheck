@@ -73,6 +73,8 @@ Mark all results as isOfflineResult: true. Use conservative scoring.`;
 HEALTH PROFILE:
 ${profileJson}
 
+If the profile includes "allergies", treat those ingredients as ABSOLUTE AVOID (classification AVOID) regardless of score. If it includes "dietaryPreferences" (e.g., vegetarian, vegan, Jain), never recommend dishes that violate them.
+
 MENU:
 ---
 ${menuText}

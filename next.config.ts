@@ -33,8 +33,9 @@ const nextConfig: NextConfig = {
             value: '0',
           },
           {
+            // Allow camera on our own origin (menu photo capture); deny mic/geolocation everywhere.
             key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=()',
+            value: 'camera=(self), microphone=(), geolocation=()',
           },
         ],
       },

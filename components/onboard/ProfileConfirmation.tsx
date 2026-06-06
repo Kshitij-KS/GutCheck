@@ -2,7 +2,10 @@
 
 // components/onboard/ProfileConfirmation.tsx
 
-import { motion } from 'framer-motion';
+import { useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ChevronDown, SlidersHorizontal } from 'lucide-react';
+import { PreferencesFields } from '@/components/shared/PreferencesFields';
 import type { HealthProfile } from '@/types';
 
 interface ProfileConfirmationProps {
@@ -11,6 +14,7 @@ interface ProfileConfirmationProps {
 }
 
 export function ProfileConfirmation({ profile, onSave }: ProfileConfirmationProps) {
+  const [showPersonalize, setShowPersonalize] = useState(false);
   return (
     <motion.div
       initial={{ opacity: 0, y: 12 }}
@@ -55,6 +59,47 @@ export function ProfileConfirmation({ profile, onSave }: ProfileConfirmationProp
         )}
       </div>
 
+      {/* Optional personalization — quiet, collapsible, skippable */}
+      <div className="mb-5 rounded-xl" style={{ border: '1px solid var(--border)' }}>
+        <button
+          type="button"
+          aria-expanded={showPersonalize}
+          onClick={() => setShowPersonalize((v) => !v)}
+          className="w-full flex items-center justify-between gap-3 px-4 py-3 text-left"
+        >
+          <span className="flex items-center gap-2">
+            <SlidersHorizontal size={15} style={{ color: 'var(--text-muted)' }} />
+            <span className="text-sm font-medium" style={{ fontFamily: 'var(--font-body)', color: 'var(--text-primary)' }}>
+              Personalize your guidance
+            </span>
+            <span className="text-xs" style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}>
+              optional
+            </span>
+          </span>
+          <motion.span animate={{ rotate: showPersonalize ? 180 : 0 }} transition={{ duration: 0.2 }}>
+            <ChevronDown size={16} style={{ color: 'var(--text-muted)' }} />
+          </motion.span>
+        </button>
+        <AnimatePresence>
+          {showPersonalize && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: 'easeInOut' }}
+              className="overflow-hidden"
+            >
+              <div className="px-4 pb-4 pt-1 border-t" style={{ borderColor: 'var(--border)' }}>
+                <p className="text-xs leading-relaxed mb-4 mt-3" style={{ color: 'var(--text-secondary)', fontFamily: 'var(--font-body)' }}>
+                  Helps tailor menu scans, the Chef&apos;s Card, and seasonal tips. You can change these anytime in your profile.
+                </p>
+                <PreferencesFields />
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
       <button onClick={onSave} className="gc-btn-primary w-full">
         Save my profile
       </button>
@@ -63,7 +108,7 @@ export function ProfileConfirmation({ profile, onSave }: ProfileConfirmationProp
         className="mt-3 text-xs text-center"
         style={{ color: 'var(--text-muted)', fontFamily: 'var(--font-body)' }}
       >
-        Saved locally on your device — never sent to any server
+        Saved on your device — your report is processed securely and never stored on our servers
       </p>
     </motion.div>
   );

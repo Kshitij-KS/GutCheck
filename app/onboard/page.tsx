@@ -12,6 +12,8 @@ import { PDFPreview } from '@/components/onboard/PDFPreview';
 import { AgentProgressStepper } from '@/components/onboard/AgentProgressStepper';
 import { GuardrailAlert } from '@/components/onboard/GuardrailAlert';
 import { ProfileConfirmation } from '@/components/onboard/ProfileConfirmation';
+import { ProfileDiff } from '@/components/onboard/ProfileDiff';
+import { toast } from '@/store/ui.store';
 
 function OnboardLoading() {
   return (
@@ -32,6 +34,7 @@ function OnboardContent() {
   const isReplace = searchParams.get('replace') === '1';
 
   const isOnboarded = useGutCheckStore((s) => s.isOnboarded);
+  const existingProfile = useGutCheckStore((s) => s.healthProfile);
   const setHealthProfile = useGutCheckStore((s) => s.setHealthProfile);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const { state, run, reset, resolveUnitAmbiguity, retry } = useAgentPipeline();
@@ -47,6 +50,7 @@ function OnboardContent() {
 
   const handleSave = () => {
     if (state.stage !== 'complete') return;
+    const previousProfile = useGutCheckStore.getState().healthProfile;
     setHealthProfile(state.profile);
     const { healthProfile, reportHistory } = useGutCheckStore.getState();
     void fetch('/api/drive/sync', {
@@ -60,6 +64,22 @@ function OnboardContent() {
     }).catch(() => {
       // Local save is already complete; Drive sync remains optional.
     });
+
+    // Offer Undo when this replaced an existing profile.
+    if (previousProfile) {
+      toast.success('Profile updated', {
+        duration: 6000,
+        action: {
+          label: 'Undo',
+          onClick: () => {
+            const restored = useGutCheckStore.getState().restorePreviousProfile();
+            if (restored) toast.info('Restored your previous profile');
+          },
+        },
+      });
+    } else {
+      toast.success('Profile saved');
+    }
     router.push('/dashboard');
   };
 
@@ -68,7 +88,7 @@ function OnboardContent() {
   const isGuardrailBlocked = state.stage === 'guardrail_blocked';
   const isComplete = state.stage === 'complete';
   const isUnitAmbiguous = state.stage === 'unit_ambiguous';
-  const isProcessing = ['extracting', 'guardrail_checking', 'translating'].includes(state.stage);
+  const isProcessing = ['extracting', 'guardrail_checking', 'translating', 'retrying'].includes(state.stage);
 
   const getErrorMessage = () => {
     if (state.stage !== 'error') return '';
@@ -147,8 +167,9 @@ function OnboardContent() {
             >
               {selectedFile && <PDFPreview file={selectedFile} />}
               <AgentProgressStepper
-                stage={state.stage}
+                stage={state.stage === 'retrying' ? 'translating' : state.stage}
                 streamedText={state.stage === 'translating' ? (state as { stage: string; streamedText: string }).streamedText : undefined}
+                note={state.stage === 'retrying' ? `Reattempting… (attempt ${state.attempt} of ${state.of})` : undefined}
               />
             </motion.div>
           )}
@@ -203,7 +224,16 @@ function OnboardContent() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.4 }}
             >
-              <ProfileConfirmation profile={state.profile} onSave={handleSave} />
+              {isReplace && existingProfile ? (
+                <ProfileDiff
+                  previous={existingProfile}
+                  next={state.profile}
+                  onConfirm={handleSave}
+                  onCancel={() => router.replace('/dashboard')}
+                />
+              ) : (
+                <ProfileConfirmation profile={state.profile} onSave={handleSave} />
+              )}
             </motion.div>
           )}
 
