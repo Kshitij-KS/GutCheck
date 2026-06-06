@@ -7,6 +7,7 @@ import { getDriveAccessToken } from '@/lib/drive-auth';
 import { getDriveClient } from '@/lib/drive/client';
 import { syncToDrive, loadFromDrive } from '@/lib/drive/sync';
 import type { DriveSyncPayload } from '@/lib/drive/sync';
+import { logger } from '@/lib/utils';
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const accessToken = await getDriveAccessToken(req);
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const data = await loadFromDrive(drive);
     return NextResponse.json(data ?? { profile: null, history: [] });
   } catch (err) {
-    console.error('[drive/sync GET]', 'An error occurred while loading from Drive');
+    logger.error('Drive Sync', 'An error occurred while loading from Drive', err);
     return NextResponse.json({ error: 'Failed to load from Drive' }, { status: 500 });
   }
 }
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     await syncToDrive(drive, payload);
     return NextResponse.json({ success: true, syncedAt: new Date().toISOString() });
   } catch (err) {
-    console.error('[drive/sync POST]', 'An error occurred while syncing to Drive');
+    logger.error('Drive Sync', 'An error occurred while syncing to Drive', err);
     return NextResponse.json({ error: 'Failed to sync to Drive' }, { status: 500 });
   }
 }

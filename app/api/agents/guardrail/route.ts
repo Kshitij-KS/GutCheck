@@ -11,6 +11,7 @@ import type { GuardrailResult, SpecialPopulation } from '@/types';
 import { PREGNANCY_REDIRECT, PEDIATRIC_REDIRECT } from '@/constants/critical-thresholds';
 import { API_INPUT_LIMITS, detectPromptInjection, isResponseSafe, sanitizeInput } from '@/lib/security';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { logger } from '@/lib/utils';
 
 const RequestSchema = z.object({
   markersJson: z.string().min(2).max(API_INPUT_LIMITS.markersJson),
@@ -62,6 +63,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const rawText = response.response.text();
     if (!isResponseSafe(rawText)) {
+      logger.error('Agent 2 Guardrail', 'AI response could not be parsed');
       return NextResponse.json({ error: 'AI response could not be parsed' }, { status: 500 });
     }
 
@@ -71,11 +73,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     try {
       unknownJson = JSON.parse(jsonStr);
     } catch {
+      logger.error('Agent 2 Guardrail', 'Failed to parse AI response as JSON');
       return NextResponse.json({ error: 'AI response could not be parsed' }, { status: 500 });
     }
 
     const aiParsed = GuardrailAiResponseSchema.safeParse(unknownJson);
     if (!aiParsed.success) {
+      logger.error('Agent 2 Guardrail', 'AI response failed validation');
       return NextResponse.json({ error: 'AI response could not be parsed' }, { status: 500 });
     }
 
@@ -98,11 +102,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json(result);
   } catch (err) {
+    logger.error('Agent 2 Guardrail', 'Error during guardrail check', err);
     const message = (err as Error).message ?? '';
     if (message.includes('JSON') || message.includes('parse') || message.includes('ZodError')) {
       return NextResponse.json({ error: 'AI response could not be parsed' }, { status: 500 });
     }
-    console.error('[guardrail] Error:', message);
     return NextResponse.json({ error: 'Guardrail check failed' }, { status: 500 });
   }
 }

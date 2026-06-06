@@ -2,6 +2,7 @@
 // Zod schema for grocery audit results (Agent: scan-grocery)
 
 import { z } from 'zod';
+import { extractJson } from '@/lib/utils';
 import type { GroceryAuditResult } from '@/types';
 
 const TrafficLightSchema = z.enum(['PRIORITIZE', 'MODERATE', 'AVOID']);
@@ -37,22 +38,6 @@ export const GroceryAuditResultSchema = z.object({
   prioritizeCount: z.number().int().min(0).default(0),
   timestamp: z.string().default(() => new Date().toISOString()),
 });
-
-/**
- * Extract JSON from raw AI response using multiple strategies.
- */
-function extractJson(raw: string): string {
-  const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fenceMatch && fenceMatch[1]) return fenceMatch[1];
-
-  const firstBrace = raw.indexOf('{');
-  const lastBrace = raw.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-    return raw.slice(firstBrace, lastBrace + 1);
-  }
-
-  return raw;
-}
 
 /**
  * Parse and validate grocery audit result.

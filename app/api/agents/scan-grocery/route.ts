@@ -13,6 +13,7 @@ import {
   sanitizeInput,
 } from '@/lib/security';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { logger } from '@/lib/utils';
 
 const RequestSchema = z.object({
   groceryList: z.string().min(3, 'Grocery list cannot be empty').max(API_INPUT_LIMITS.groceryList),
@@ -73,12 +74,14 @@ export async function POST(req: NextRequest): Promise<Response> {
         }
 
         if (!isResponseSafe(fullText)) {
+          logger.error('Agent Scan-Grocery', 'AI response could not be parsed');
           emit({ error: 'AI response could not be parsed', done: true });
           return;
         }
         const result = parseGroceryAuditResult(fullText);
         emit({ done: true, result });
       } catch (err) {
+        logger.error('Agent Scan-Grocery', 'Error during grocery audit', err);
         const message = (err as Error).message ?? '';
         if (message.includes('JSON') || message.includes('parse') || message.includes('ZodError')) {
           emit({ error: 'AI response could not be parsed', done: true });

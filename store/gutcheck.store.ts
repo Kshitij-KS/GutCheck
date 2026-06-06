@@ -115,16 +115,16 @@ export const useGutCheckStore = create<GutCheckStore>()(
         setHealthProfile: (profile: HealthProfile) => {
           const previous = get().healthProfile;
 
-          if (previous) {
-            const entry: ReportHistoryEntry = {
-              id: crypto.randomUUID(),
-              uploadedAt: new Date().toISOString(),
-              reportDate: previous.reportDate,
-              profileSnapshot: previous,
-              markerDeltas: computeMarkerDeltas(previous.markers, profile.markers),
-            };
-            set((s) => ({ reportHistory: [entry, ...s.reportHistory] }));
-          }
+           if (previous) {
+             const entry: ReportHistoryEntry = {
+               id: crypto.randomUUID(),
+               uploadedAt: new Date().toISOString(),
+               reportDate: previous.reportDate,
+               profileSnapshot: previous,
+               markerDeltas: computeMarkerDeltas(previous.markers, profile.markers),
+             };
+             set((s) => ({ reportHistory: [entry, ...(s.reportHistory ?? [])] }));
+           }
 
           set({ healthProfile: profile, isOnboarded: true });
         },

@@ -300,18 +300,21 @@ export function useAgentPipeline() {
 
       const profile = await runGuardrailAndTranslate(extracted.markers, reportText, signal);
       setState({ stage: 'complete', profile });
-    } catch (err) {
-      if ((err as Error).name === 'AbortError') return;
-      const { message, canRetry } = classifyError(err);
-      setState({
-        stage: 'error',
-        message,
-        stageFailed: 'extract',
-        canRetry,
-      });
-    } finally {
-      isRunningRef.current = false;
-    }
+       } catch (err) {
+         if ((err as Error).name === 'AbortError') {
+           // Don't set error state for aborts, just clean up
+         } else {
+           const { message, canRetry } = classifyError(err);
+           setState({
+             stage: 'error',
+             message,
+             stageFailed: 'extract',
+             canRetry,
+           });
+         }
+       } finally {
+         isRunningRef.current = false;
+       }
   }, [runGuardrailAndTranslate]);
 
   const resolveUnitAmbiguity = useCallback(async (unit: UnitClarification) => {
@@ -350,18 +353,21 @@ export function useAgentPipeline() {
 
       const profile = await runGuardrailAndTranslate(markers, state.reportText, signal);
       setState({ stage: 'complete', profile });
-    } catch (err) {
-      if ((err as Error).name === 'AbortError') return;
-      const { message, canRetry } = classifyError(err);
-      setState({
-        stage: 'error',
-        message,
-        stageFailed: 'translate',
-        canRetry,
-      });
-    } finally {
-      isRunningRef.current = false;
-    }
+     } catch (err) {
+       if ((err as Error).name === 'AbortError') {
+         // Don't set error state for aborts, just clean up
+       } else {
+         const { message, canRetry } = classifyError(err);
+         setState({
+           stage: 'error',
+           message,
+           stageFailed: 'translate',
+           canRetry,
+         });
+       }
+     } finally {
+       isRunningRef.current = false;
+     }
   }, [runGuardrailAndTranslate, state]);
 
   const retry = useCallback(async () => {

@@ -7,6 +7,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { API_INPUT_LIMITS, validateFileUpload } from '@/lib/security';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { logger } from '@/lib/utils';
 
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
 
@@ -89,7 +90,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { status: 415 }
     );
   } catch (err) {
-    console.error('[pdf/extract] Error:', (err as Error).message);
+    logger.error('PDF Extract', 'Error during file processing', err);
     return NextResponse.json({ error: 'File processing failed' }, { status: 500 });
   }
 }

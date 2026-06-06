@@ -14,6 +14,7 @@ import {
   sanitizeInput,
 } from '@/lib/security';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { logger } from '@/lib/utils';
 
 const RequestSchema = z.object({
   menuText: z.string().max(API_INPUT_LIMITS.menuText).optional().default(''),
@@ -84,12 +85,14 @@ export async function POST(req: NextRequest): Promise<Response> {
         }
 
         if (!isResponseSafe(fullText)) {
+          logger.error('Agent Scan-Menu', 'AI response could not be parsed');
           emit({ error: 'AI response could not be parsed', done: true });
           return;
         }
         const result = parseMenuScanResult(fullText);
         emit({ done: true, result });
       } catch (err) {
+        logger.error('Agent Scan-Menu', 'Error during menu scan', err);
         const message = (err as Error).message ?? '';
         if (message.includes('JSON') || message.includes('parse') || message.includes('ZodError')) {
           emit({ error: 'AI response could not be parsed', done: true });

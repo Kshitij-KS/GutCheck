@@ -2,6 +2,7 @@
 // Zod schema for Agent 3 (translate) output — validates full HealthProfile
 
 import { z } from 'zod';
+import { extractJson } from '@/lib/utils';
 
 const MarkerStatusSchema = z.enum([
   'OPTIMAL', 'BORDERLINE', 'ELEVATED', 'CRITICAL', 'LOW', 'CRITICALLY_LOW',
@@ -99,24 +100,6 @@ export const HealthProfileSchema = z.object({
 
 export type HealthProfileOutput = z.infer<typeof HealthProfileSchema>;
 
-/**
- * Extract JSON from raw AI response using multiple strategies.
- */
-function extractJson(raw: string): string {
-  // Strategy 1: Extract from markdown code fences
-  const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fenceMatch && fenceMatch[1]) return fenceMatch[1];
-
-  // Strategy 2: First { to last }
-  const firstBrace = raw.indexOf('{');
-  const lastBrace = raw.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-    return raw.slice(firstBrace, lastBrace + 1);
-  }
-
-  // Strategy 3: Fall back to raw
-  return raw;
-}
 
 /**
  * Parse and validate Agent 3 output.

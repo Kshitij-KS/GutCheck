@@ -15,6 +15,7 @@ import {
   sanitizeInput,
 } from '@/lib/security';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { logger } from '@/lib/utils';
 
 const RequestSchema = z.object({
   markersJson: z.string().min(2).max(API_INPUT_LIMITS.markersJson),
@@ -76,6 +77,7 @@ export async function POST(req: NextRequest): Promise<Response> {
         }
 
         if (!isResponseSafe(fullText)) {
+          logger.error('Agent 3 Translate', 'AI response could not be parsed');
           emit({ error: 'AI response could not be parsed', done: true });
           return;
         }
@@ -89,6 +91,7 @@ export async function POST(req: NextRequest): Promise<Response> {
 
         emit({ done: true, result: profile });
       } catch (err) {
+        logger.error('Agent 3 Translate', 'Error during translation', err);
         const message = (err as Error).message ?? '';
         if (message.includes('JSON') || message.includes('parse') || message.includes('ZodError')) {
           emit({ error: 'AI response could not be parsed', done: true });

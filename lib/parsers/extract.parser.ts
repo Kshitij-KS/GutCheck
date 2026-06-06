@@ -2,6 +2,7 @@
 // Zod schema for Agent 1 (extraction) output — safety net for AI responses
 
 import { z } from 'zod';
+import { extractJson } from '@/lib/utils';
 
 const MarkerFoodRulesSchema = z.object({
   strictAvoid: z.array(z.string()).default([]),
@@ -46,21 +47,6 @@ export const ExtractedMarkersSchema = z.object({
 
 export type ExtractedMarkersOutput = z.infer<typeof ExtractedMarkersSchema>;
 
-/**
- * Extract JSON from raw AI response using multiple strategies.
- */
-function extractJson(raw: string): string {
-  const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fenceMatch && fenceMatch[1]) return fenceMatch[1];
-
-  const firstBrace = raw.indexOf('{');
-  const lastBrace = raw.lastIndexOf('}');
-  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-    return raw.slice(firstBrace, lastBrace + 1);
-  }
-
-  return raw;
-}
 
 /**
  * Parse and validate Agent 1 output.

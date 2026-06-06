@@ -15,6 +15,7 @@ import {
   sanitizeInput,
 } from '@/lib/security';
 import { checkRateLimit } from '@/lib/rate-limit';
+import { logger } from '@/lib/utils';
 
 const RequestSchema = z.object({
   text: z.string().max(API_INPUT_LIMITS.extractText).optional().default(''),
@@ -79,6 +80,7 @@ export async function POST(req: NextRequest): Promise<Response> {
           ]);
           const rawText = response.response.text();
           if (!isResponseSafe(rawText)) {
+            logger.error('Agent 1 Extract', 'AI response could not be parsed');
             emit({ error: 'AI response could not be parsed', done: true });
             return;
           }
@@ -91,6 +93,7 @@ export async function POST(req: NextRequest): Promise<Response> {
           ]);
           const rawText = response.response.text();
           if (!isResponseSafe(rawText)) {
+            logger.error('Agent 1 Extract', 'AI response could not be parsed');
             emit({ error: 'AI response could not be parsed', done: true });
             return;
           }
@@ -99,7 +102,7 @@ export async function POST(req: NextRequest): Promise<Response> {
 
         emit({ done: true, result });
       } catch (err) {
-        console.error('[Agent 1 Extract Error]', err);
+        logger.error('Agent 1 Extract', 'Error during extraction', err);
         const message = (err as Error).message ?? 'Unknown error';
         if (message.includes('JSON') || message.includes('parse') || message.includes('ZodError')) {
           emit({ error: 'AI response could not be parsed', done: true });
