@@ -33,26 +33,26 @@ Implementation is in **TypeScript / React (TSX)** with **Tailwind CSS v4 (CSS-fi
     - No React/DOM imports; pure functions only
     - _Requirements: 6.1, 6.2, 7.1, 7.2, 7.3, 7.4, 8.1, 8.2_
 
-  - [ ]* 2.2 Write property test for the motion registry
+  - [x]* 2.2 Write property test for the motion registry
     - **Property 1: Only `transform` and `opacity` are ever animated**
     - Use `fast-check` with `numRuns: 100`; tag `// Feature: ui-ux-overhaul, Property 1`
     - **Validates: Requirements 6.1, 6.5**
 
-  - [ ]* 2.3 Write property test for state-transition durations
+  - [x]* 2.3 Write property test for state-transition durations
     - **Property 2: State-transition durations stay within the 150–200ms band**
     - `fast-check`, `numRuns: 100`, tagged comment
     - **Validates: Requirements 6.2**
 
-  - [ ]* 2.4 Write property test for stagger delays
+  - [x]* 2.4 Write property test for stagger delays
     - **Property 3: Stagger delays cascade by 30–80ms and never run away**
     - Generate arbitrary non-negative indices including large values to exercise the cap
     - **Validates: Requirements 7.2**
 
-  - [ ]* 2.5 Write property test for normal-mode entrance variant
+  - [x]* 2.5 Write property test for normal-mode entrance variant
     - **Property 4: Normal-mode entrance is a fade-in-up with a settled terminal state**
     - **Validates: Requirements 7.1, 7.3, 7.4**
 
-  - [ ]* 2.6 Write property test for reduced-motion entrance variant
+  - [x]* 2.6 Write property test for reduced-motion entrance variant
     - **Property 5: Reduced-motion entrance is opacity-only**
     - **Validates: Requirements 8.1, 8.2**
 
@@ -63,7 +63,7 @@ Implementation is in **TypeScript / React (TSX)** with **Tailwind CSS v4 (CSS-fi
     - No React/DOM imports
     - _Requirements: 5.3_
 
-  - [ ]* 3.2 Write property test for focus-ring contrast
+  - [x]* 3.2 Write property test for focus-ring contrast
     - **Property 6: Focus ring meets 3:1 contrast against every surface**
     - Generate colors within the warm-palette family plus the fixed surface-token set; assert ratio `>= 3.0`; `fast-check`, `numRuns: 100`
     - **Validates: Requirements 5.3**
@@ -79,7 +79,7 @@ Implementation is in **TypeScript / React (TSX)** with **Tailwind CSS v4 (CSS-fi
     - Replace the framer-motion entrance with the CSS `.gc-enter` pattern (simple unmount on dismiss, no exit animation), removing framer-motion from this component
     - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5, 4.6, 4.7, 4.8_
 
-  - [ ]* 5.2 Write component tests for `SaveProfilePrompt`
+  - [x]* 5.2 Write component tests for `SaveProfilePrompt`
     - Dismiss removes the banner; sign-in calls mocked `signIn('google')`; dismiss control exposes its accessible name; grid template areas/classes present
     - _Requirements: 4.6, 4.7, 4.8, 4.1_
 
@@ -90,7 +90,7 @@ Implementation is in **TypeScript / React (TSX)** with **Tailwind CSS v4 (CSS-fi
     - Implement `.gc-toggle` as a `button[role="switch"]` style conveying on/off via knob position plus a non-color glyph (`✓`/`✕`) driven by `aria-checked`
     - _Requirements: 5.1, 5.2, 5.4, 5.5, 6.3, 6.4_
 
-  - [ ]* 6.2 Write tests for shared controls and motion gating
+  - [x]* 6.2 Write tests for shared controls and motion gating
     - Buttons map to `gc-btn-primary`/`gc-btn-secondary`; `:focus-visible`/active rules use `outline` and `scale(0.97)`; toggle exposes a non-color cue in both states; hover rules nested in the fine-pointer media query; reduced-motion block zeroes transforms while keeping controls operable
     - _Requirements: 5.1, 5.2, 5.4, 5.5, 6.4, 8.3, 8.4, 8.5_
 
@@ -100,7 +100,7 @@ Implementation is in **TypeScript / React (TSX)** with **Tailwind CSS v4 (CSS-fi
     - Preserve the existing set of displayed information fields and the `gc-card` treatment
     - _Requirements: 1.1, 1.3, 2.5, 3.1, 7.1, 7.2, 7.3, 7.4_
 
-  - [ ]* 7.2 Write tests for dashboard entrance and field preservation
+  - [x]* 7.2 Write tests for dashboard entrance and field preservation
     - Cards receive `.gc-enter` and a clamped stagger index; all pre-existing information fields remain present
     - _Requirements: 2.5, 7.1, 7.2_
 
@@ -115,7 +115,7 @@ Implementation is in **TypeScript / React (TSX)** with **Tailwind CSS v4 (CSS-fi
     - Add mobile bottom padding to the main content region so the fixed bottom bar never occludes content; structure otherwise unchanged
     - _Requirements: 9.1, 11.1_
 
-  - [ ]* 8.3 Write component tests for `Navbar`
+  - [x]* 8.3 Write component tests for `Navbar`
     - Destination set equals `NAV_LINKS` at mobile/tablet/desktop widths; each destination links to its route; thumb-zone control renders at mobile and persistent bar at desktop; sheet open renders a close control and traps focus
     - _Requirements: 3.4, 11.1, 11.2, 11.3, 11.4, 11.5_
 
@@ -141,7 +141,7 @@ Implementation is in **TypeScript / React (TSX)** with **Tailwind CSS v4 (CSS-fi
     - Assert every interactive element measures >=44×44 at mobile/tablet, small graphics are expanded to 44×44, adjacent hit areas do not intersect, and adjacent grouped sections have >=1.5rem spacing
     - _Requirements: 2.4, 10.1, 10.2, 10.3, 10.4_
 
-- [ ] 11. Final checkpoint - Ensure all tests pass
+- [x] 11. Final checkpoint - Ensure all tests pass
   - Ensure all property, component, and integration tests pass; ask the user if questions arise.
 
 ## Notes
