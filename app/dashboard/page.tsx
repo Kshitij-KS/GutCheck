@@ -2,7 +2,8 @@
 
 // app/dashboard/page.tsx
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import type { CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useGutCheckStore } from '@/store/gutcheck.store';
@@ -13,9 +14,33 @@ import { SeasonalTip } from '@/components/dashboard/SeasonalTip';
 import { SaveProfilePrompt } from '@/components/dashboard/SaveProfilePrompt';
 import { TrendSparkline } from '@/components/dashboard/TrendSparkline';
 
+// Cap the stagger index so long collections never feel slow. Mirrors the
+// `--stagger-max-index: 8` design token and `staggerDelay`'s index cap in
+// `lib/motion.ts` (the cap constant is not exported, so the documented max
+// index of 8 is used directly).
+const STAGGER_MAX_INDEX = 8;
+
+// Single source for the quick-action destinations so they can be mapped with a
+// per-item stagger index. Fields/labels unchanged from the prior markup.
+const QUICK_ACTIONS = [
+  { href: '/scan', icon: '🍽️', label: 'Scan menu' },
+  { href: '/grocery', icon: '🛒', label: 'Audit grocery list' },
+  { href: '/chef-card', icon: '🃏', label: "Chef's card" },
+  { href: '/history', icon: '📊', label: 'View history' },
+] as const;
+
 export default function DashboardPage() {
   const router = useRouter();
   const { isOnboarded, healthProfile, reportHistory, location } = useGutCheckStore();
+
+  // Drives the `.gc-enter` JS fallback path (this is a client component): render
+  // hidden, then flip to mounted after first paint so the CSS entrance runs even
+  // where @starting-style is unsupported. Mirrors SaveProfilePrompt.
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   useEffect(() => {
     if (!isOnboarded) router.replace('/');
@@ -44,10 +69,16 @@ export default function DashboardPage() {
 
       {/* Quick action cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <ScanCard href="/scan" icon="🍽️" label="Scan menu" />
-        <ScanCard href="/grocery" icon="🛒" label="Audit grocery list" />
-        <ScanCard href="/chef-card" icon="🃏" label="Chef's card" />
-        <ScanCard href="/history" icon="📊" label="View history" />
+        {QUICK_ACTIONS.map((action, i) => (
+          <ScanCard
+            key={action.href}
+            href={action.href}
+            icon={action.icon}
+            label={action.label}
+            index={i}
+            mounted={mounted}
+          />
+        ))}
       </div>
 
       {/* Markers */}
@@ -77,8 +108,13 @@ export default function DashboardPage() {
             Based on {totalReports} uploaded reports
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {healthProfile.markers.slice(0, 6).map((marker) => (
-              <div key={marker.id} className="gc-card p-4">
+            {healthProfile.markers.slice(0, 6).map((marker, i) => (
+              <div
+                key={marker.id}
+                className="gc-card gc-enter p-4"
+                data-mounted={mounted}
+                style={{ '--gc-stagger-index': Math.min(i, STAGGER_MAX_INDEX) } as CSSProperties}
+              >
                 <p
                   className="text-sm font-medium"
                   style={{ fontFamily: 'var(--font-body)', color: 'var(--text-primary)' }}
@@ -100,12 +136,25 @@ export default function DashboardPage() {
   );
 }
 
-function ScanCard({ href, icon, label }: { href: string; icon: string; label: string }) {
+function ScanCard({
+  href,
+  icon,
+  label,
+  index,
+  mounted,
+}: {
+  href: string;
+  icon: string;
+  label: string;
+  index: number;
+  mounted: boolean;
+}) {
   return (
     <Link
       href={href}
-      className="gc-card p-5 flex flex-col items-center justify-center gap-2 text-center transition-all hover:scale-105"
-      style={{ minHeight: '100px' }}
+      data-mounted={mounted}
+      className="gc-card gc-enter gc-interactive p-5 flex flex-col items-center justify-center gap-2 text-center"
+      style={{ minHeight: '100px', '--gc-stagger-index': Math.min(index, STAGGER_MAX_INDEX) } as CSSProperties}
     >
       <span className="text-2xl">{icon}</span>
       <span

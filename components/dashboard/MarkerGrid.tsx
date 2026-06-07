@@ -21,7 +21,7 @@ export function MarkerGrid({ markers }: MarkerGridProps) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {sorted.map((marker, i) => (
-        <MarkerCard key={marker.id} marker={marker} delay={i * 0.05} />
+        <MarkerCard key={marker.id} marker={marker} index={i} />
       ))}
     </div>
   );

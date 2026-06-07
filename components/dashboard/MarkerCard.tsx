@@ -4,14 +4,16 @@
 // Blood marker as a card with expandable food rules
 // DM Mono for values, status chip, implication, expand chevron → food rules
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import type { CSSProperties } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown } from 'lucide-react';
 import type { BloodMarker, MarkerStatus } from '@/types';
 
 interface MarkerCardProps {
   marker: BloodMarker;
-  delay?: number;
+  /** Position within the marker collection; drives the staggered entrance. */
+  index?: number;
 }
 
 const STATUS_COLORS: Record<MarkerStatus, { color: string; bg: string; label: string }> = {
@@ -23,16 +25,27 @@ const STATUS_COLORS: Record<MarkerStatus, { color: string; bg: string; label: st
   CRITICALLY_LOW:{ color: 'var(--status-critical)',   bg: '#FDECEA',                 label: 'Very low' },
 };
 
-export function MarkerCard({ marker, delay = 0 }: MarkerCardProps) {
+// Cap the stagger index so long collections never feel slow. Mirrors the
+// `--stagger-max-index: 8` design token and `staggerDelay`'s index cap.
+const STAGGER_MAX_INDEX = 8;
+
+export function MarkerCard({ marker, index = 0 }: MarkerCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  // Drives the `.gc-enter` JS fallback (this is a client component): render
+  // hidden, then flip mounted after first paint so the CSS entrance runs even
+  // where @starting-style is unsupported.
+  const [mounted, setMounted] = useState(false);
   const status = STATUS_COLORS[marker.status];
 
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, delay, ease: 'easeOut' }}
-      className="gc-card overflow-hidden"
+    <div
+      data-mounted={mounted}
+      className="gc-card gc-enter overflow-hidden"
+      style={{ '--gc-stagger-index': Math.min(index, STAGGER_MAX_INDEX) } as CSSProperties}
     >
       <div className="p-5">
         <div className="flex items-start justify-between gap-3">
@@ -143,7 +156,7 @@ export function MarkerCard({ marker, delay = 0 }: MarkerCardProps) {
           </motion.div>
         )}
       </AnimatePresence>
-    </motion.div>
+    </div>
   );
 }
 
